@@ -1,1 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Powder Coating Stock Management</title>
 
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#f3f6f9;
+    color:#222
+}
+
+/* LOGIN */
+.login-page{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    position:relative;
+    overflow:hidden;
+    background:linear-gradient(135deg,#87cefa,#38bdf8,#14b8a6)
+}
+
+.floating-shapes{
+    position:absolute;
+    inset:0;
+    overflow:hidden;
+    pointer-events:none
+}
+
+.floating-shapes span{
+    position:absolute;
+    animation:floatShape 10s linear infinite
+}
+
+.dot{
+    border-radius:50%;
+    background:#050505
+}
+
+.star{
+    color:#ff4fa3;
+    font-size:24px
+}
+
+.d1{width:8px;height:8px;left:7%;top:18%}
+.d2{width:15px;height:15px;left:18%;top:78%;animation-duration:13s}
+.d3{width:25px;height:25px;left:83%;top:19%;animation-duration:15s}
+.d4{width:11px;height:11px;left:91%;top:72%;animation-duration:10s}
+.d5{width:32px;height:32px;left:5%;top:54%;animation-duration:17s}
+.d6{width:18px;height:18px;left:74%;top:86%;animation-duration:12s}
+
+.s1{left:28%;top:13%}
+.s2{left:67%;top:30%;font-size:32px}
+.s3{left:12%;top:88%;font-size:18px}
+.s4{left:87%;top:47%;font-size:20px}
+.s5{left:48%;top:8%;font-size:16px}
+
+@keyframes floatShape{
+    0%{transform:translateY(25px) rotate(0)}
+    50%{transform:translateY(-40px) rotate(180deg)}
+    100%{transform:translateY(25px) rotate(360deg)}
+}
+
+.login-box{
+    position:relative;
+    z-index:2;
+    width:390px;
+    max-width:92%;
+    background:white;
+    padding:35px;
+    border-radius:18px;
+    box-shadow:0 10px 35px rgba(0,0,0,.15)
+}
+
+.login-title{
+    text-align:center;
+    font-size:28px;
+    font-weight:bold
+}
+
+.login-subtitle{
+    text-align:center;
+    color:#777;
+    margin:8px 0 25px
+}
+
+.login-box label{
+    display:block;
+    margin:15px 0 7px;
+    font-weight:bold
+}
+
+.login-box input,
+.login-box select{
+    width:100%;
+    padding:13px;
+    border:1px solid #ccd3da;
+    border-radius:9px;
+    font-size:15px
+}
+
+.password-field{
+    position:relative
+}
+
+.password-field input{
+    padding-right:50px
+}
+
+.password-toggle{
+    position:absolute;
+    right:8px;
+    top:50%;
+    transform:translateY(-50%);
+    border:0;
+    background:transparent;
+    font-size:20px;
+    cursor:pointer
+}
+
+.login-btn{
+    width:100%;
+    margin-top:25px;
+    padding:14px;
+    border:0;
+    border-radius:10px;
+    background:#2563eb;
+    color:white;
+    font-size:16px;
+    font-weight:bold
+}
+
+.login-error{
+    display:none;
+    margin-top:15px;
+    padding:10px;
+    border-radius:8px;
+    background:#fee2e2;
+    color:#b91c1c;
+    text-align:center
+}
+
+/* APP */
+.app{
+    display:none;
+    min-height:100vh
+}
+
+.sidebar{
+    position:fixed;
+    left:0;
+    top:0;
+    bottom:0;
+    width:250px;
+    background:#172033;
+    color:white;
+    padding:20px 14px;
+    z-index:10;
+    display:flex;
+    flex-direction:column
+}
+
+.logo{
+    text-align:center;
+    font-size:21px;
+    font-weight:bold;
+    padding:12px 5px 25px;
+    border-bottom:1px solid rgba(255,255,255,.1)
+}
+
+.user-label{
+    margin:18px 5px;
+    padding:10px;
+    border-radius:8px;
+    background:#25324b;
+    text-align:center;
+    font-size:13px
+}
+
+.menu{
+    margin-top:10px
+}
+
+.menu button{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:13px;
+    border:0;
+    background:transparent;
+    color:#dce5f5;
+    padding:14px 15px;
+    border-radius:9px;
+    cursor:pointer;
+    font-size:15px;
+    text-align:left;
+    margin-bottom:5px
+}
+
+.menu button:hover,
+.menu button.active{
+    background:#2563eb;
+    color:white
+}
+
+.menu-icon{
+    width:24px;
+    text-align:center
+}
+
+.logout{
+    margin-top:auto!important;
+    background:#7f1d1d!important
+}
+
+.logout:hover{
+    background:#dc2626!important
+}
+
+.main{
+    margin-left:250px;
+    padding:25px
+}
+
+.mobile-header{
+    display:none
+}
+
+.topbar{
+    background:white;
+    border-radius:14px;
+    padding:18px 22px;
+    margin-bottom:25px;
+    box-shadow:0 3px 12px rgba(0,0,0,.05);
+    display:flex;
+    justify-content:space-between
+}
+
+.topbar h1{
+    margin:0;
+    font-size:25px
+}
+
+.topbar-user{
+    color:#666
+}
+
+.page{
+    display:none
+}
+
+.page.active{
+    display:block
+}
+
+/* CARDS */
+.cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:18px;
+    margin-bottom:25px
+}
+
+.card{
+    background:white;
+    border-radius:14px;
+    padding:22px;
+    box-shadow:0 3px 12px rgba(0,0,0,.06);
+    cursor:pointer
+}
+
+.card-icon{
+    font-size:28px;
+    margin-bottom:12px
+}
+
+.card-title{
+    color:#666;
+    font-size:14px
+}
+
+.card-value{
+    font-size:28px;
+    font-weight:bold;
+    margin-top:7px
+}
+
+/* PANELS */
+.panel{
+    background:white;
+    padding:22px;
+    border-radius:14px;
+    box-shadow:0 3px 12px rgba(0,0,0,.06);
+    margin-bottom:20px
+}
+
+.panel h2{
+    margin-top:0
+}
+
+.form-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:18px
+}
+
+.form-group label{
+    display:block;
+    font-weight:bold;
+    margin-bottom:7px
+}
+
+.form-group input,
+.form-group select{
+    width:100%;
+    padding:12px;
+    border:1px solid #ccd3da;
+    border-radius:8px;
+    font-size:15px
+}
+
+.primary-btn{
+    margin-top:20px;
+    padding:13px 22px;
+    border:0;
+    border-radius:9px;
+    background:#2563eb;
+    color:white;
+    font-weight:bold;
+    cursor:pointer
+}
+
+.success-btn{
+    background:#16a34a
+}
+
+.search{
+    width:100%;
+    padding:12px;
+    border:1px solid #ccd3da;
+    border-radius:8px;
+    margin-bottom:15px;
+    font-size:15px
+}
+
+/* SEARCH RESULTS */
+.item-search-results{
+    margin-top:6px;
+    border:1px solid #d7dce3;
+    border-radius:10px;
+    background:white;
+    box-shadow:0 6px 16px rgba(0,0,0,.08);
+    max-height:260px;
+    overflow:auto;
+    display:none;
+    position:relative;
+    z-index:20
+}
+
+.item-search-option{
+    padding:12px 14px;
+    border-bottom:1px solid #edf0f4;
+    cursor:pointer
+}
+
+.item-search-option:hover{
+    background:#eef5ff
+}
+
+.item-search-code{
+    font-weight:bold
+}
+
+.item-search-name{
+    font-size:14px;
+    color:#555;
+    margin-top:3px
+}
+
+/* TABLE */
+.table-wrap{
+    overflow:auto
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:680px
+}
+
+th,td{
+    padding:12px;
+    border-bottom:1px solid #e5e7eb;
+    text-align:left
+}
+
+th{
+    background:#f1f5f9
+}
+
+.badge{
+    padding:5px 9px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:bold
+}
+
+.badge-green{
+    background:#dcfce7;
+    color:#166534
+}
+
+.badge-yellow{
+    background:#fef3c7;
+    color:#92400e
+}
+
+.small-note{
+    font-size:13px;
+    color:#667085;
+    margin-top:8px
+}
+
+/* MOBILE */
+@media(max-width:750px){
+
+    .sidebar{
+        width:220px;
+        transform:translateX(-100%);
+        transition:.25s
+    }
+
+    .sidebar.open{
+        transform:translateX(0)
+    }
+
+    .main{
+        margin-left:0;
+        padding:15px
+    }
+
+    .mobile-header{
+        display:flex;
+        align-items:center;
+        gap:15px;
+        background:#172033;
+        color:white;
+        padding:13px 15px;
+        margin:-15px -15px 20px
+    }
+
+    .mobile-header button{
+        border:0;
+        background:transparent;
+        color:white;
+        font-size:25px
+    }
+
+    .topbar h1{
+        font-size:20px
+    }
+
+    .topbar-user{
+        display:none
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div class="login-page" id="loginPage">
+
+<div class="floating-shapes">
+<span class="dot d1"></span>
+<span class="dot d2"></span>
+<span class="dot d3"></span>
+<span class="dot d4"></span>
+<span class="dot d5"></span>
+<span class="dot d6"></span>
+
+<span class="star s1">★</span>
+<span class="star s2">★</span>
+<span class="star s3">★</span>
+<span class="star s4">★</span>
+<span class="star s5">★</span>
+</div>
+
+<div class="login-box">
+
+<div class="login-title">📦 Stock Management</div>
+
+<div class="login-subtitle">
+Powder Coating Stock System
+</div>
+
+<label>User</label>
+
+<select id="username">
+<option value="pretreatment">Pre Treatment</option>
+<option value="powdercoating">Powder Coating</option>
+</select>
+
+<label>Password</label>
+
+<div class="password-field">
+
+<input
+type="password"
+id="password"
+placeholder="Enter password"
+onkeydown="if(event.key==='Enter')login()"
+>
+
+<button
+type="button"
+class="password-toggle"
+onclick="togglePassword()"
+>
+👁
+</button>
+
+</div>
+
+<button class="login-btn" onclick="login()">
+🔐 Sign In
+</button>
+
+<div class="login-error" id="loginError">
+Invalid username or password
+</div>
+
+</div>
+</div>
+
+
+<!-- APPLICATION -->
+<div class="app" id="app">
+
+<aside class="sidebar" id="sidebar">
+
+<div class="logo">
+📦 STOCK SYSTEM
+</div>
+
+<div class="user-label" id="loggedUser">
+User
+</div>
+
+
+<!-- PRE TREATMENT MENU -->
+<div class="menu" id="preMenu">
+
+<button onclick="showPage('preDashboard')" class="active">
+<span class="menu-icon">🏠</span>
+Dashboard
+</button>
+
+<button onclick="showPage('addStock')">
+<span class="menu-icon">➕</span>
+Add Stock
+</button>
+
+<button onclick="showPage('sendStock')">
+<span class="menu-icon">📤</span>
+Send Stock
+</button>
+
+<button onclick="showPage('preAvailable')">
+<span class="menu-icon">📦</span>
+Available Stock
+</button>
+
+<button onclick="showPage('addNewItem')">
+<span class="menu-icon">➕</span>
+Add New Item Code
+</button>
+
+<button class="logout" onclick="logout()">
+<span class="menu-icon">🚪</span>
+Logout
+</button>
+
+</div>
+
+
+<!-- POWDER COATING MENU -->
+<div class="menu" id="powderMenu" style="display:none">
+
+<button onclick="showPage('powderDashboard')" class="active">
+<span class="menu-icon">🏠</span>
+Dashboard
+</button>
+
+<button onclick="showPage('receivedStock')">
+<span class="menu-icon">📥</span>
+Received Stock
+</button>
+
+<button onclick="showPage('completedStock')">
+<span class="menu-icon">✅</span>
+Powder Coating Completed Stock
+</button>
+
+<button onclick="showPage('powderAvailable')">
+<span class="menu-icon">📊</span>
+Balance Stock
+</button>
+
+<button class="logout" onclick="logout()">
+<span class="menu-icon">🚪</span>
+Logout
+</button>
+
+</div>
+
+</aside>
+
+
+<main class="main">
+
+<div class="mobile-header">
+<button onclick="toggleSidebar()">☰</button>
+<strong>Stock Management</strong>
+</div>
+
+<div class="topbar">
+<h1 id="pageTitle">Dashboard</h1>
+<div class="topbar-user" id="topUser">User</div>
+</div>
+
+
+<!-- PRE DASHBOARD -->
+<section class="page active" id="preDashboard">
+
+<div class="cards">
+
+<div class="card" onclick="showPage('preAvailable')">
+<div class="card-icon">📦</div>
+<div class="card-title">Pre Treatment Stock</div>
+<div class="card-value" id="preTotal">0</div>
+</div>
+
+<div class="card" onclick="showPage('sendStock')">
+<div class="card-icon">📤</div>
+<div class="card-title">Sent to Powder Coating</div>
+<div class="card-value" id="preSent">0</div>
+</div>
+
+<div class="card" onclick="showPage('preAvailable')">
+<div class="card-icon">📊</div>
+<div class="card-title">Item Master</div>
+<div class="card-value" id="preItems">0</div>
+</div>
+
+<div class="card" onclick="showPage('addNewItem')">
+<div class="card-icon">➕</div>
+<div class="card-title">Add New Item Code</div>
+<div class="card-value">+</div>
+</div>
+
+</div>
+
+<div class="panel">
+<h2>Pre Treatment</h2>
+<p>
+Add incoming stock and send stock to
+<b>Powder Coating</b>.
+</p>
+</div>
+
+</section>
+
+
+<!-- ADD NEW ITEM -->
+<section class="page" id="addNewItem">
+
+<div class="panel">
+
+<h2>➕ Add New Item Code</h2>
+
+<div class="form-group">
+<label>Item Code</label>
+<input id="newItemCode" placeholder="Enter new item code">
+</div>
+
+<br>
+
+<div class="form-group">
+<label>Item Name</label>
+<input id="newItemName" placeholder="Enter item name">
+</div>
+
+<button class="primary-btn" onclick="addNewItem()">
+➕ Add New Item
+</button>
+
+<div id="newItemMessage"></div>
+
+</div>
+
+</section>
+
+
+<!-- ADD STOCK -->
+<section class="page" id="addStock">
+
+<div class="panel">
+
+<h2>➕ Add Stock</h2>
+
+<div class="form-group">
+
+<label>Search Item</label>
+
+<input
+id="addItemSearch"
+autocomplete="off"
+placeholder="Enter Item Code or Item Name"
+oninput="searchItems('add')"
+>
+
+<div id="addItemSearchResults"
+class="item-search-results">
+</div>
+
+</div>
+
+<br>
+
+<div class="form-grid">
+
+<div class="form-group">
+<label>Item Code</label>
+<input id="addItemCode" readonly>
+</div>
+
+<div class="form-group">
+<label>Item Name</label>
+<input id="addItemName" readonly>
+</div>
+
+<div class="form-group">
+<label>Quantity</label>
+<input
+type="number"
+id="addQty"
+min="1"
+step="any"
+placeholder="Enter quantity"
+>
+</div>
+
+</div>
+
+<button class="primary-btn" onclick="addStock()">
+➕ Add Stock
+</button>
+
+</div>
+
+</section>
+
+
+<!-- SEND STOCK -->
+<section class="page" id="sendStock">
+
+<div class="panel">
+
+<h2>📤 Send Stock to Powder Coating</h2>
+
+<div class="form-group">
+
+<label>Search Item</label>
+
+<input
+id="sendItemSearch"
+autocomplete="off"
+placeholder="Enter Item Code or Item Name"
+oninput="searchItems('send')"
+>
+
+<div id="sendItemSearchResults"
+class="item-search-results">
+</div>
+
+</div>
+
+<br>
+
+<div class="form-grid">
+
+<div class="form-group">
+<label>Item Code</label>
+<input id="sendItemCode" readonly>
+</div>
+
+<div class="form-group">
+<label>Item Name</label>
+<input id="sendItemName" readonly>
+</div>
+
+<div class="form-group">
+<label>Balance Quantity</label>
+<input id="sendBalanceQty" readonly>
+</div>
+
+<div class="form-group">
+<label>Send Quantity</label>
+<input
+type="number"
+id="sendQty"
+min="1"
+step="any"
+placeholder="Enter quantity"
+>
+</div>
+
+<div class="form-group">
+<label>Remarks</label>
+<input id="sendRemarks" placeholder="Enter remarks">
+</div>
+
+</div>
+
+<button class="primary-btn" onclick="sendStock()">
+📤 Send to Powder Coating
+</button>
+
+</div>
+
+</section>
+
+
+<!-- PRE AVAILABLE -->
+<section class="page" id="preAvailable">
+
+<div class="panel">
+
+<h2>📦 Pre Treatment Available Stock</h2>
+
+<input
+class="search"
+id="preSearch"
+oninput="renderPreStock()"
+placeholder="Search Item Code or Item Name..."
+>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+<tr>
+<th>Sl No</th>
+<th>Item Code</th>
+<th>Item Name</th>
+<th>Available Quantity</th>
+</tr>
+</thead>
+
+<tbody id="preStockTable"></tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- POWDER DASHBOARD -->
+<section class="page" id="powderDashboard">
+
+<div class="cards">
+
+<div class="card" onclick="showPage('receivedStock')">
+<div class="card-icon">📥</div>
+<div class="card-title">Received Stock</div>
+<div class="card-value" id="powderReceived">0</div>
+</div>
+
+<div class="card" onclick="showPage('powderAvailable')">
+<div class="card-icon">📊</div>
+<div class="card-title">Balance Stock</div>
+<div class="card-value" id="powderBalanceTotal">0</div>
+</div>
+
+<div class="card" onclick="showPage('completedStock')">
+<div class="card-icon">✅</div>
+<div class="card-title">Completed Stock</div>
+<div class="card-value" id="powderCompleted">0</div>
+</div>
+
+</div>
+
+<div class="panel">
+
+<h2>Powder Coating</h2>
+
+<p>
+Stock sent by Pre Treatment automatically appears in
+<b>Received Stock</b> and <b>Balance Stock</b>.
+</p>
+
+</div>
+
+</section>
+
+
+<!-- RECEIVED STOCK -->
+<section class="page" id="receivedStock">
+
+<div class="panel">
+
+<h2>📥 Received Stock from Pre Treatment</h2>
+
+<input
+class="search"
+id="receivedSearch"
+oninput="renderReceivedStock()"
+placeholder="Search Item Code or Item Name..."
+>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+<tr>
+<th>Sl No</th>
+<th>Item Code</th>
+<th>Item Name</th>
+<th>Quantity</th>
+<th>Date</th>
+<th>Time</th>
+</tr>
+</thead>
+
+<tbody id="receivedTable"></tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- POWDER BALANCE -->
+<section class="page" id="powderAvailable">
+
+<div class="panel">
+
+<h2>📦 Powder Coating Balance Stock</h2>
+
+<input
+class="search"
+id="powderSearch"
+oninput="renderPowderStock()"
+placeholder="Search Item Code or Item Name..."
+>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+<tr>
+<th>Sl No</th>
+<th>Item Code</th>
+<th>Item Name</th>
+<th>Balance Quantity</th>
+</tr>
+</thead>
+
+<tbody id="powderStockTable"></tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- COMPLETED -->
+<section class="page" id="completedStock">
+
+<div class="panel">
+
+<h2>✅ Powder Coating Completed Stock</h2>
+
+<div class="form-group">
+
+<label>Search Item</label>
+
+<input
+id="completeItemSearch"
+autocomplete="off"
+placeholder="Enter Item Code or Item Name"
+oninput="searchItems('complete')"
+>
+
+<div id="completeItemSearchResults"
+class="item-search-results">
+</div>
+
+</div>
+
+<br>
+
+<div class="form-grid">
+
+<div class="form-group">
+<label>Item Code</label>
+<input id="completeItemCode" readonly>
+</div>
+
+<div class="form-group">
+<label>Item Name</label>
+<input id="completeItemName" readonly>
+</div>
+
+<div class="form-group">
+<label>Balance Quantity</label>
+<input id="completeBalanceQty" readonly>
+</div>
+
+<div class="form-group">
+<label>Completed Quantity</label>
+<input
+type="number"
+id="completeQty"
+min="1"
+step="any"
+placeholder="Enter quantity"
+>
+</div>
+
+</div>
+
+<button class="primary-btn success-btn"
+onclick="completeStock()">
+
+✅ Save Completed Stock
+
+</button>
+
+</div>
+
+
+<div class="panel">
+
+<h2>Completed Stock History</h2>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+<tr>
+<th>Sl No</th>
+<th>Item Code</th>
+<th>Item Name</th>
+<th>Quantity</th>
+<th>Date</th>
+<th>Time</th>
+</tr>
+</thead>
+
+<tbody id="completedTable"></tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</section>
+
+</main>
+</div>
+
+
+<script>
+
+/* =====================================================
+   ONLINE API
+===================================================== */
+
+let ITEMS=[];
+let STOCK=[];
+let TRANSACTIONS=[];
+let COMPLETED=[];
+let currentUser=null;
+
+const API="";
+
+
+/* =====================================================
+   LOGIN
+===================================================== */
+
+async function login(){
+
+    const username=document.getElementById("username").value;
+    const password=document.getElementById("password").value;
+    const error=document.getElementById("loginError");
+
+    try{
+
+        const response=await fetch(API+"/api/login",{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify({
+                username,
+                password
+            })
+        });
+
+        const data=await response.json();
+
+        if(!response.ok){
+            error.textContent=data.message||"Invalid username or password";
+            error.style.display="block";
+            return;
+        }
+
+        currentUser=data.user;
+
+        sessionStorage.setItem(
+            "stockToken",
+            data.token
+        );
+
+        sessionStorage.setItem(
+            "currentUser",
+            JSON.stringify(data.user)
+        );
+
+        document.getElementById("loginPage").style.display="none";
+        document.getElementById("app").style.display="block";
+
+        document.getElementById("loggedUser").textContent=data.user.name;
+        document.getElementById("topUser").textContent=data.user.name;
+
+        document.getElementById("preMenu").style.display=
+            username==="pretreatment"?"block":"none";
+
+        document.getElementById("powderMenu").style.display=
+            username==="powdercoating"?"block":"none";
+
+        showPage(
+            username==="pretreatment"
+            ?"preDashboard"
+            :"powderDashboard"
+        );
+
+        error.style.display="none";
+
+        await loadData();
+
+    }catch(e){
+
+        console.error(e);
+
+        error.textContent=
+            "Server connection failed. Please try again.";
+
+        error.style.display="block";
+    }
+}
+
+
+/* =====================================================
+   LOGOUT
+===================================================== */
+
+function logout(){
+
+    sessionStorage.removeItem("stockToken");
+    sessionStorage.removeItem("currentUser");
+
+    currentUser=null;
+
+    document.getElementById("app").style.display="none";
+    document.getElementById("loginPage").style.display="flex";
+    document.getElementById("password").value="";
+}
+
+
+/* =================================
