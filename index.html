@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -19,14 +18,14 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 .login-btn:hover{background:#1d4ed8}
 .login-error{display:none;margin-top:15px;padding:10px;border-radius:8px;background:#fee2e2;color:#b91c1c;text-align:center}
 .app{display:none;min-height:100vh}
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:250px;background:#172033;color:white;padding:20px 14px;z-index:10}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:250px;background:#172033;color:white;padding:20px 14px;z-index:10;display:flex;flex-direction:column}
 .logo{text-align:center;font-size:21px;font-weight:bold;padding:12px 5px 25px;border-bottom:1px solid rgba(255,255,255,.1)}
 .user-label{margin:18px 5px;padding:10px;border-radius:8px;background:#25324b;text-align:center;font-size:13px}
 .menu{margin-top:10px}
 .menu button{width:100%;display:flex;align-items:center;gap:13px;border:none;background:transparent;color:#dce5f5;padding:14px 15px;border-radius:9px;cursor:pointer;font-size:15px;text-align:left;margin-bottom:5px}
 .menu button:hover,.menu button.active{background:#2563eb;color:white}
 .menu-icon{width:24px;text-align:center;font-size:19px}
-.logout{margin-top:25px!important;background:#7f1d1d!important}
+.logout{margin-top:auto!important;background:#7f1d1d!important}
 .logout:hover{background:#dc2626!important}
 .main{margin-left:250px;padding:25px}
 .topbar{background:white;border-radius:14px;padding:18px 22px;margin-bottom:25px;box-shadow:0 3px 12px rgba(0,0,0,.05);display:flex;justify-content:space-between;align-items:center}
@@ -39,6 +38,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 .panel h2{margin-top:0}.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
 .form-group label{display:block;font-weight:bold;margin-bottom:7px}
 .form-group input,.form-group select{width:100%;padding:12px;border:1px solid #ccd3da;border-radius:8px;font-size:15px}
+.item-search-results{margin-top:6px;border:1px solid #d7dce3;border-radius:10px;background:#fff;box-shadow:0 6px 16px rgba(0,0,0,.08);max-height:260px;overflow:auto;display:none;position:relative;z-index:20}.item-search-option{padding:12px 14px;border-bottom:1px solid #edf0f4;cursor:pointer}.item-search-option:last-child{border-bottom:none}.item-search-option:active,.item-search-option:hover{background:#eef5ff}.item-search-code{font-weight:700}.item-search-name{font-size:14px;color:#555;margin-top:3px}
 .primary-btn{margin-top:20px;padding:13px 22px;border:none;border-radius:9px;background:#2563eb;color:white;font-weight:bold;cursor:pointer}
 .primary-btn:hover{background:#1d4ed8}.success-btn{background:#16a34a}.success-btn:hover{background:#15803d}
 .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:680px}th,td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#f1f5f9;font-size:14px}
@@ -61,8 +61,6 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
   padding:6px;line-height:1;z-index:5;color:#333
 }
 .password-toggle:focus{outline:2px solid #64748b;outline-offset:2px}
-
-.search-box{position:relative}.search-results{display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid #ccd3da;border-radius:8px;max-height:220px;overflow:auto;box-shadow:0 8px 20px rgba(0,0,0,.12)}.search-result{padding:11px 12px;cursor:pointer;border-bottom:1px solid #eef0f2;font-size:14px}.search-result:hover{background:#eef6ff}.readonly{background:#f8fafc}
 </style>
 </head>
 <body>
@@ -86,6 +84,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
   </div>
 </div>
 
+
 <div class="app" id="app">
 <aside class="sidebar" id="sidebar">
   <div class="logo">📦 STOCK SYSTEM</div>
@@ -102,8 +101,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
   <div class="menu" id="powderMenu" style="display:none">
     <button onclick="showPage('powderDashboard',this)" class="active"><span class="menu-icon">🏠</span>Dashboard</button>
     <button onclick="showPage('receivedStock',this)"><span class="menu-icon">📥</span>Received Stock</button>
-    <button onclick="showPage('powderAvailable',this)"><span class="menu-icon">📦</span>Available Stock</button>
     <button onclick="showPage('completedStock',this)"><span class="menu-icon">✅</span>Powder Coating Completed Stock</button>
+    <button onclick="showPage('powderAvailable',this)"><span class="menu-icon">📊</span>Balance Stock</button>
     <button class="logout" onclick="logout()"><span class="menu-icon">🚪</span>Logout</button>
   </div>
 </aside>
@@ -114,18 +113,34 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 
   <section class="page active" id="preDashboard">
     <div class="cards">
-      <div class="card"><div class="card-icon">📦</div><div class="card-title">Pre Treatment Stock</div><div class="card-value" id="preTotal">0</div></div>
-      <div class="card"><div class="card-icon">📤</div><div class="card-title">Sent to Powder Coating</div><div class="card-value" id="preSent">0</div></div>
-      <div class="card"><div class="card-icon">📊</div><div class="card-title">Item Master</div><div class="card-value" id="preItems">0</div></div>
+      <div class="card" onclick="showPage('preAvailable',this)" style="cursor:pointer" title="Tap to view Pre Treatment Available Stock"><div class="card-icon">📦</div><div class="card-title">Pre Treatment Stock</div><div class="card-value" id="preTotal">0</div></div>
+      <div class="card" onclick="showPage('sendStock',this)" style="cursor:pointer" title="Tap to view Send Stock"><div class="card-icon">📤</div><div class="card-title">Sent to Powder Coating</div><div class="card-value" id="preSent">0</div></div>
+      <div class="card" onclick="showPage('preAvailable',this)" style="cursor:pointer" title="Tap to view item list"><div class="card-icon">📊</div><div class="card-title">Item Master</div><div class="card-value" id="preItems">0</div></div>
+      <div class="card" onclick="showPage('addNewItem',this)" style="cursor:pointer" title="Tap to add a new item code"><div class="card-icon">➕</div><div class="card-title">Add New Item Code</div><div class="card-value">+</div></div>
     </div>
     <div class="panel"><h2>Pre Treatment</h2><p>Add incoming stock and send stock only to <b>Powder Coating</b>.</p></div>
   </section>
 
+  <section class="page" id="addNewItem">
+    <div class="panel"><h2>➕ Add New Item Code</h2>
+      <div class="form-group"><label>Item Code</label><input id="newItemCode" type="text" placeholder="Enter new item code"></div>
+      <div class="form-group"><label>Item Name</label><input id="newItemName" type="text" placeholder="Enter item name"></div>
+      <button class="primary-btn" onclick="addNewItem()">➕ Add New Item</button>
+      <div id="newItemMessage" style="margin-top:12px;font-weight:600"></div>
+    </div>
+  </section>
+
   <section class="page" id="addStock">
     <div class="panel"><h2>➕ Add Stock</h2>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Search Item</label>
+        <input id="addItemSearch" autocomplete="off" placeholder="Enter Item Code or Item Name" oninput="searchAddItem()">
+        <div id="addItemSearchResults" class="item-search-results"></div>
+        <datalist id="addItemSearchList"></datalist>
+      </div>
       <div class="form-grid">
-        <div class="form-group"><label>Search Item</label><div class="search-box"><input class="search" id="addSearch" autocomplete="off" placeholder="Search Item Code or Item Name..." oninput="searchAddItem()"><div class="search-results" id="addResults"></div></div><label>Item Code</label><input id="addItemCode" type="text" readonly class="readonly"></div>
-        <div class="form-group"><label>Item Name</label><input id="addItemName" readonly></div>
+        <div class="form-group"><label>Item Code</label><input id="addItemCode" type="text" readonly placeholder="Item Code will come automatically"></div>
+        <div class="form-group"><label>Item Name</label><input id="addItemName" readonly placeholder="Item Name will come automatically"></div>
         <div class="form-group"><label>Quantity</label><input type="number" id="addQty" min="1" step="any" placeholder="Enter quantity"></div>
       </div>
       <button class="primary-btn" onclick="addStock()">➕ Add Stock</button>
@@ -134,14 +149,20 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 
   <section class="page" id="sendStock">
     <div class="panel"><h2>📤 Send Stock to Powder Coating</h2>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Search Item</label>
+        <input id="sendItemSearch" autocomplete="off" placeholder="Enter Item Code or Item Name" oninput="searchSendItem()">
+        <div id="sendItemSearchResults" class="item-search-results"></div>
+      </div>
       <div class="form-grid">
-        <div class="form-group"><label>Search Item</label><div class="search-box"><input class="search" id="sendSearch" autocomplete="off" placeholder="Search Item Code or Item Name..." oninput="searchSendItem()"><div class="search-results" id="sendResults"></div></div><label>Item Code</label><select id="sendItemCode" onchange="updateItemName('send')"></select></div>
-        <div class="form-group"><label>Item Name</label><input id="sendItemName" readonly></div>
-        <div class="form-group"><label>Available Balance</label><input id="sendBalance" readonly class="readonly"></div><div class="form-group"><label>Quantity</label><input type="number" id="sendQty" min="1" step="any" placeholder="Enter quantity"></div><div class="form-group"><label>Remarks</label><input id="sendRemarks" placeholder="Optional remarks"></div>
-        <div class="form-group"><label>Send To</label><input value="Powder Coating" readonly></div>
+        <div class="form-group"><label>Item Code</label><input id="sendItemCode" type="text" readonly placeholder="Item Code will come automatically"></div>
+        <div class="form-group"><label>Item Name</label><input id="sendItemName" readonly placeholder="Item Name will come automatically"></div>
+        <div class="form-group"><label>Balance Quantity</label><input type="number" id="sendBalanceQty" readonly placeholder="0"></div>
+        <div class="form-group"><label>Send Quantity</label><input type="number" id="sendQty" min="1" step="any" placeholder="Enter send quantity"></div>
+        <div class="form-group"><label>Remarks</label><input id="sendRemarks" placeholder="Enter remarks"></div>
       </div>
       <button class="primary-btn" onclick="sendStock()">📤 Send to Powder Coating</button>
-      <div class="small-note">Destination is fixed to Powder Coating.</div>
+      <div class="small-note">Search by Item Code or Item Name → tap the correct item → Item Code, Item Name and Balance Quantity will appear automatically.</div>
     </div>
   </section>
 
@@ -154,11 +175,11 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 
   <section class="page" id="powderDashboard">
     <div class="cards">
-      <div class="card"><div class="card-icon">📥</div><div class="card-title">Received Stock</div><div class="card-value" id="powderReceived">0</div></div>
-      <div class="card"><div class="card-icon">📦</div><div class="card-title">Available Stock</div><div class="card-value" id="powderAvailable">0</div></div>
-      <div class="card"><div class="card-icon">✅</div><div class="card-title">Completed Stock</div><div class="card-value" id="powderCompleted">0</div></div>
+      <div class="card" onclick="showPage('receivedStock',this)" style="cursor:pointer" title="Tap to view Received Stock"><div class="card-icon">📥</div><div class="card-title">Received Stock</div><div class="card-value" id="powderReceived">0</div></div>
+      <div class="card" onclick="showPage('powderAvailable',this)" style="cursor:pointer" title="Tap to view Balance Stock"><div class="card-icon">📊</div><div class="card-title">Balance Stock</div><div class="card-value" id="powderBalanceTotal">0</div></div>
+      <div class="card" onclick="showPage('completedStock',this)" style="cursor:pointer" title="Tap to view Completed Stock"><div class="card-icon">✅</div><div class="card-title">Completed Stock</div><div class="card-value" id="powderCompleted">0</div></div>
     </div>
-    <div class="panel"><h2>Powder Coating</h2><p>Stock sent by Pre Treatment automatically appears in <b>Received Stock</b> and <b>Available Stock</b>.</p></div>
+    <div class="panel"><h2>Powder Coating</h2><p>Stock sent by Pre Treatment automatically appears in <b>Received Stock</b>. After completed quantities are entered, the remaining quantity appears in <b>Balance Stock</b>.</p></div>
   </section>
 
   <section class="page" id="receivedStock">
@@ -169,20 +190,27 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
   </section>
 
   <section class="page" id="powderAvailable">
-    <div class="panel"><h2>📦 Powder Coating Available Stock</h2>
+    <div class="panel"><h2>📦 Powder Coating Balance Stock</h2>
       <input class="search" id="powderSearch" oninput="renderPowderStock()" placeholder="Search Item Code or Item Name...">
-      <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Available Quantity</th></tr></thead><tbody id="powderStockTable"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Balance Quantity</th></tr></thead><tbody id="powderStockTable"></tbody></table></div>
     </div>
   </section>
 
   <section class="page" id="completedStock">
     <div class="panel"><h2>✅ Powder Coating Completed Stock</h2>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Search Item</label>
+        <input id="completeItemSearch" autocomplete="off" placeholder="Enter Item Code or Item Name" oninput="searchCompleteItem()">
+        <div id="completeItemSearchResults" class="item-search-results"></div>
+      </div>
       <div class="form-grid">
-        <div class="form-group"><label>Search Item</label><div class="search-box"><input class="search" id="completeSearch" autocomplete="off" placeholder="Search Item Code or Item Name..." oninput="searchCompleteItem()"><div class="search-results" id="completeResults"></div></div><label>Item Code</label><select id="completeItemCode" onchange="updateItemName('complete')"></select></div>
-        <div class="form-group"><label>Item Name</label><input id="completeItemName" readonly></div>
-        <div class="form-group"><label>Available Balance</label><input id="completeBalance" readonly class="readonly"></div><div class="form-group"><label>Completed Quantity</label><input type="number" id="completeQty" min="1" step="any" placeholder="Enter quantity"></div><div class="form-group"><label>Remarks</label><input id="completeRemarks" placeholder="Optional remarks"></div>
+        <div class="form-group"><label>Item Code</label><input id="completeItemCode" type="text" readonly placeholder="Item Code will come automatically"></div>
+        <div class="form-group"><label>Item Name</label><input id="completeItemName" readonly placeholder="Item Name will come automatically"></div>
+        <div class="form-group"><label>Balance Quantity</label><input id="completeBalanceQty" readonly placeholder="Balance stock"></div>
+        <div class="form-group"><label>Completed Quantity</label><input type="number" id="completeQty" min="1" step="any" placeholder="Enter quantity"></div>
       </div>
       <button class="primary-btn success-btn" onclick="completeStock()">✅ Save Completed Stock</button>
+      <div class="small-note">Search by Item Code or Item Name → tap the correct item → Item Code, Item Name and Balance Quantity will appear automatically.</div>
     </div>
     <div class="panel"><h2>Completed Stock History</h2>
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Date</th><th>Time</th></tr></thead><tbody id="completedTable"></tbody></table></div>
@@ -192,186 +220,510 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 </div>
 
 <script>
-const API="";
+function loadCustomItems(){
+  try{return JSON.parse(localStorage.getItem("customItems")||"[]").filter(x=>x&&x.code&&x.name);}catch(e){return [];}
+}
+let ITEMS;
+function saveCustomItems(){
+  const builtCodes=new Set(BUILTIN_ITEMS.map(x=>String(x.code).trim().toLowerCase()));
+  const custom=ITEMS.filter(x=>!builtCodes.has(String(x.code).trim().toLowerCase()));
+  localStorage.setItem("customItems",JSON.stringify(custom));
+}
+
+const USERS={
+  pretreatment:{password:"@powdercoating123",name:"Pre Treatment"},
+  powdercoating:{password:"@powdercoating123",name:"Powder Coating"}
+};
+
+const BUILTIN_ITEMS=[{"code":"111","name":"CHAMBER ASSY AIR SHIFT-A3261C289"},{"code":"1365","name":"ADAPTER H309"},{"code":"112","name":"FRONT PANEL-DF-11010-01"},{"code":"2103","name":"BOTTOM CASTING"},{"code":"113","name":"REAR PANEL-DF-11010-02"},{"code":"115","name":"Cover D01 L-Gr DA M120 50094182"},{"code":"116","name":"COVER D307 L GR-71224754"},{"code":"117","name":"COVER D308 L-GR-M115-71224759"},{"code":"118","name":"COVER D309 non Ex L-GR M122-71224762"},{"code":"119","name":"COVER D320 L-GR AL -71247179"},{"code":"120","name":"ENCLOSURE  NECK -PIG02-71118503"},{"code":"121","name":"Enclosure Neck Pi PMAG W/P L-Bl DA 50101667"},{"code":"122","name":"Enclosure Neck Pmagh L-Bl DA Ai-50094265"},{"code":"123","name":"Enclosure Neck-Pi 2x DA 50099285"},{"code":"124","name":"HALF HOUSING SHELL PM DN 32 DA L-BL -50053429"},{"code":"125","name":"HALF HOUSING SHELL PMF DN 15 DA L.BL - 50079992"},{"code":"126","name":"Half Housing Shell PMF DN 25 DA - 50053427"},{"code":"127","name":"Half Housing Shell PMF DN 40DA -L-Bl-50053431"},{"code":"128","name":"Half Housing Shell PMF DN 50 DA-50053433"},{"code":"129","name":"Half Housing Shell PMF DN125 DA 50058764"},{"code":"130","name":"Half Housing Shell PMF DN150 DA L-Bl  50058766"},{"code":"131","name":"Housing G06 L-Bl 50100330"},{"code":"132","name":"Housing G06 L-BL 50100331"},{"code":"133","name":"Housing G09 L-Bl 2xM20x1.5-50102947"},{"code":"134","name":"Housing PmagD DN 100 L-BL-71073382"},{"code":"135","name":"Housing -PmagD DN 25 L-BL-71073366"},{"code":"136","name":"Housing PmagD DN 40 L-BL-71073369"},{"code":"137","name":"Housing PmagD DN 50 L- Bl-71073373"},{"code":"138","name":"Housing PmagD DN 65 L-BL-71073376"},{"code":"139","name":"Housing PmagD DN 80 L-Bl-71073379"},{"code":"140","name":"Mounting Part G03 Universal Blue -50094754"},{"code":"141","name":"PCB Fastening Bracket with Milling DA 71440980"},{"code":"142","name":"RETAINING  RING MACHINED M120 DA-50094740"},{"code":"143","name":"Base  Housing W08 Alu 1/2  NPT -71080146"},{"code":"144","name":"Base W06 EN M24x1,5 2xM20x1,5 blue-71122459"},{"code":"145","name":"Base W06 EN M24x1,5 / 1/2NPT-71098498"},{"code":"146","name":"Base W06 EN M24x1,5-M20x1,5 RAL5012-71098497"},{"code":"147","name":"Base Housing W08 Alu/ Metric-71079256 (W)"},{"code":"148","name":"Base W06 EN closed 2x1/2NPT bl - 71122463"},{"code":"149","name":"Base W06 EN closed 2xM20x1,5 blue- 71122462"},{"code":"150","name":"Cover Connection W06 EN Display-71107286"},{"code":"151","name":"Cover Connection Head W06 EN Flat -71096356, Lid low"},{"code":"152","name":"Cover Housing Display I Finished - 71079253"},{"code":"153","name":"Cover Connection Head W06 EN High-71096358"},{"code":"154","name":"COVER HOUSING W08ALU / DISPLAY II -71079288"},{"code":"155","name":"CENTER  SCREEN HOLDING CLAMP-A0722030100000"},{"code":"156","name":"CASTING FOR COLORS 90 DEGREE(B00000685)"},{"code":"159","name":"SYNERGY 10 DEGREE CONNTECTOR (B00001806)"},{"code":"160","name":"SYNERGY 90 DEGREE CONNECTOR (B00001807)"},{"code":"161","name":"CASTING FOR COLORS  99 DEGREE-B00000686"},{"code":"162","name":"VFC-097 CONVERTER,BLIND CAP,CASTING - 10-022-1035836"},{"code":"163","name":"VFC-097 CONVERTER,MIDDLE HOUSING,CASTING - 10-068-1027585"},{"code":"164","name":"SMARTPro,WINDOW CAP,ALUMINIUM LM6,DRG.NO.- F4C2012623"},{"code":"165","name":"BOLTS"},{"code":"166","name":"CAP 35"},{"code":"167","name":"COMP NO 13 END CAP"},{"code":"168","name":"Component 09-Joint  60"},{"code":"169","name":"Component 10 - Cap 60"},{"code":"170","name":"Component 13"},{"code":"171","name":"Mid Cap Component 14"},{"code":"172","name":"RAY S BUILD IN RING WHITE / BLACK-20-0033-1"},{"code":"173","name":"RAYS S FRONT RING WHITE / BLACK-20-0034-1"},{"code":"174","name":"RAY S HEAT SINK  WHITE / BLACK-20-0032-1"},{"code":"175","name":"Bracket  Step Bar FB-R6221-21160-00"},{"code":"176","name":"BRACKET STEP  BAR-R6221-21112-0A"},{"code":"177","name":"CASTING , COUPLING,TIN PULLEY SHAFT-MR2202-12040"},{"code":"178","name":"CASTING ,COUPLING  TIN PULLEY SHAFT-MR2202-12050"},{"code":"179","name":"CASTING BRACKET DOFFING BAR-MR6103-02061"},{"code":"180","name":"CASTING COVER PEDESTAL SIDE-R2201 - 05051"},{"code":"181","name":"CASTING SLIDE -2ND RLR MINI TENS-MK3401-21180"},{"code":"182","name":"CASTING -SLIDE BACK ROLLER S2-MK3401-31011"},{"code":"183","name":"CASTING SLIDE SECOND ROLLER-MK3401-21011"},{"code":"184","name":"CASTING, BRACKET RING PLATE 70G-MR2511-02021"},{"code":"185","name":"Casting, Stand Bot Rol Compact MA340111050-00"},{"code":"186","name":"CASTING,BRACKET BALLOON CONTR RING-MR2522-01022"},{"code":"187","name":"CASTING,BRACKET RING PLATE 75G-MR2511-02011"},{"code":"188","name":"COLLAR JOCKEY BRACKET-R2203-21020-00"},{"code":"189","name":"Holder Roller Stand-R3402-01021-0A"},{"code":"190","name":"STAND BOTTOM ROLLER-MR3401-11310"},{"code":"194","name":"HEAT SINK BOOM M17 WHITE / BLACK-20-0022-1"},{"code":"195","name":"BOOM M 18 BUILD IN RING WHITE / BLACK-20-0023-1"},{"code":"196","name":"NOVA MINI BUILD IN FRAME WHITE / BLACK-20-0044-1"},{"code":"197","name":"COVER PALTE NOVA MINI 5 WHITE / BLACK-20-0045-1"},{"code":"198","name":"DEEP RECESS  HOUSING -100MM (9W)"},{"code":"199","name":"BOOM M -18 FRAME WHITE / BLACK -20-0024-1"},{"code":"211","name":"BRUEHKOPFGEHAEUSE-462462"},{"code":"212","name":"DOMCVX 1 X 6 RAHMEN UNTEN DOMINO CURVE XX 6X6 GUSS-801626"},{"code":"213","name":"Domcva x06 Rahm.o. Guss Domino 106 Aufbau- 801623"},{"code":"214","name":"FUBLAGERKERN LIFT 25-316-000-1-00096 -107839"},{"code":"215","name":"Fublagermantel Lift 25-106715,316-000-1-00050  (AS CAST Kopflagermantel Lift 25, 316-000-1-00001)"},{"code":"216","name":"Fublagermantel Lift 25-107902,316-000-1-00097 (AS CAST Kopflagermantel Lift 25, 316-000-1-00001)"},{"code":"217","name":"KUPPLUNGSSCHUH-2.1.28-02.003ind"},{"code":"218","name":"VENTILKORPER PR2-130301000"},{"code":"219","name":"VENTILKORPER  RP2 -130 3090 000"},{"code":"220","name":"WINKELADAPTER HLT /48 -204-000-1-00030"},{"code":"221","name":"END PLATE -18-110-01"},{"code":"222","name":"END PLATE-13-110-01"},{"code":"223","name":"CAPACITOR CRADLE 0  SEA4H-ADVC2--1037"},{"code":"224","name":"Bearing"},{"code":"225","name":"Bushing 3.0"},{"code":"226","name":"Bushing 3.7"},{"code":"227","name":"SPACER   ALUMINIUM A380-CT6-010"},{"code":"228","name":"Wobble Plate"},{"code":"229","name":"WOBBLE PLATE ASSEMBLY HF WITH 3.7DRG BUSHING -"},{"code":"230","name":"WOBBLE PLATE ASSEMBLY WITH  3 DGR BUSHING-CT6-019"},{"code":"231","name":"JOUE 52837/01 MOD ALPAX AS 7G OU 7 GY 30 OU 33"},{"code":"232","name":"JOUE 52837/02 MOD ALPAX AS 7G OU 7GY30 OU 33"},{"code":"233","name":"CASE -CSE032N008"},{"code":"234","name":"CASE-CSE031N007"},{"code":"235","name":"COVER -CVR014N001"},{"code":"236","name":"COVER -CVR015N001"},{"code":"239","name":"MOT CAP J869 SER-C83056-001"},{"code":"240","name":"CAST COVER PRESSURE  XDUCER-CB58298-002"},{"code":"241","name":"MOUNTING STRAP-685405700V"},{"code":"242","name":"SEGMENTED  STRAP-001-6854019V01"},{"code":"243","name":"SEGMENTED STRAP-002-6854019V02"},{"code":"244","name":"Strap (DIECAST)-698903100V"},{"code":"245","name":"Washer Bar-697012200V"},{"code":"246","name":"MEC ABB STABILISIERUNGSTEG  VI .0 0716436"},{"code":"247","name":"Capsule Col Support-28225265"},{"code":"248","name":"Capsule, COL  SPT -28208380"},{"code":"249","name":"COVER  THREADED DUST-38011395"},{"code":"250","name":"NUT  ADJUSTER PLUG LOCK-38011434"},{"code":"251","name":"PLUG  ADJUSTER-38011394"},{"code":"252","name":"G  HSG, MAX- BOX BASE-MF00-A370-001A"},{"code":"253","name":"G--CAMERA HOUSING, LOWER, MF00-A360-003A"},{"code":"254","name":"G-CAMERA HOUSING, UPPER IME-MF00-A360-025B"},{"code":"255","name":"G-CAMERA LOCKING RING, IME-MF00-A360 MF00-A360-031A"},{"code":"256","name":"G-COVER, THERMAL-MF00-A370-157A"},{"code":"257","name":"G-HSG, LENS MOUNT-MF00-A370-003A"},{"code":"258","name":"G-I/O END CAP , MAX-BOX-MF-A370-005B"},{"code":"259","name":"G-MAX-BOX LID HGS-MF00-A370-002A"},{"code":"260","name":"CAP MP6-103293 - VP DEC-01 F"},{"code":"261","name":"HOUSING MP6-103249- VP GEH 01 F"},{"code":"262","name":"Piston MP6 -103301 -VP VER 01 F"},{"code":"263","name":"PLATE MP6 -103317 - VP PLA 01 F"},{"code":"264","name":"OKT P 2222 W85 MERANO BEFESTIGUNGSRING M  NOCKEN"},{"code":"265","name":"Base Plate 5387 -A21393-1"},{"code":"266","name":"End cover A21081"},{"code":"267","name":"End Cover A21084"},{"code":"268","name":"End cover A21598"},{"code":"269","name":"End cover A21699"},{"code":"270","name":"End cover A21726"},{"code":"271","name":"Frame Glass A00025"},{"code":"272","name":"Glass Frame  Glass Frame XP201-DC.AL(MOD)-A00002-1"},{"code":"273","name":"TOP COMPONENT  TOP COVER 5387 -A31201-1"},{"code":"274","name":"ANGLE -AGS002836-01"},{"code":"275","name":"HMI CLAMPING PLATE-ADVC2-1032"},{"code":"276","name":"CLAMPLING RING -AGS000781-01"},{"code":"277","name":"CONTACT-AGSH31305-01"},{"code":"278","name":"Corona Shild-AGSH31115-01"},{"code":"279","name":"ELECTRODE  ABOVE-AGS001914-01"},{"code":"280","name":"ELECTRODE BEHIND -AGSC26099-01"},{"code":"281","name":"ELECTRODE GK- AL -AGSC52749-01"},{"code":"282","name":"ELECTRODE-AGSC29984-01"},{"code":"284","name":"Endkappe-AGS660296-01"},{"code":"285","name":"Flange -AGSC51280-01"},{"code":"286","name":"Flange-AGS600309-01"},{"code":"287","name":"Flange-AGSC20515-01"},{"code":"288","name":"Flange-AGSC23194-01"},{"code":"289","name":"FLANGE-AGSC25299-01"},{"code":"290","name":"Heat Sink Above-AGSH31124-02"},{"code":"291","name":"Heat Sink Below-AGSH31127-02"},{"code":"292","name":"HEAT SINK -DRC000020-01"},{"code":"293","name":"RING -AGS662945-01"},{"code":"294","name":"Ring for Bushing-AGSC24698-01"},{"code":"295","name":"SHIELD (ABSCHIMUNG)AGSC00391-01"},{"code":"296","name":"SHIELD-AGSC00390-01"},{"code":"297","name":"Clamping Ring-CIB42708934002"},{"code":"298","name":"GUIDE -CIB42710317001"},{"code":"299","name":"Pressure Ring -CIB42706123-002"},{"code":"1100","name":"NOVA MINI HEAT SINK-10(VER2)WHITE / BLACK-20-0043-1"},{"code":"1101","name":"M Ring Nova Mini 5-WHITE / BLACK-20-0042-1"},{"code":"1102","name":"RAY M FRONT RING FOR ZAGA WHITE / BLACK-20-0025-1"},{"code":"1103","name":"Ray M Semi Recessed  Frame 5 - 20-0036-1"},{"code":"1104","name":"Brake Housing Casting-G4X2Encoder Motor-CA31171-001"},{"code":"1105","name":"Brake Hsg M/C-CA31173-001"},{"code":"1106","name":"COOLING  COVER   CASTING -C08876-001"},{"code":"1107","name":"Cover Casting -B47553-001"},{"code":"1108","name":"ELECTRONIC HSG CASTING C08874-001"},{"code":"1109","name":"Encoder Housing Casting G4x2  -CA31175-001"},{"code":"1110","name":"Encoder Hsg Casting-CA34079-001"},{"code":"1111","name":"FRONT FLANGE CAST -B47545-001"},{"code":"1112","name":"Front Flange Casting G4x3-CA34047-001"},{"code":"1113","name":"FRONT FLANGE CASTING-CA34047-002"},{"code":"1114","name":"Resolver Housing  Casting-B47825-001"},{"code":"1115","name":"Resolver Hsg Cast-B47550-001"},{"code":"1116","name":"Bracket Hanger M&M W201-28166463"},{"code":"1117","name":"Capsule Col Support BRA FIAT 310 COL-28189968"},{"code":"1118","name":"Capsule STRG COL LTH GM SII-28310777"},{"code":"1119","name":"Capsule STRG COL RH GM SII-28314014"},{"code":"1120","name":"REWORK OF HOUSING  (Rework Charges for Pump Houisng"},{"code":"1121","name":"CUSTOMER TRAY UNIVERSAL ADVC2-1268"},{"code":"1122","name":"Fixing-AGSH30486-01"},{"code":"1123","name":"HEAT  SINK DRC007216-03"},{"code":"1124","name":"HEAT SINK  -DRC007341-01"},{"code":"1130","name":"PCB HOLDER-K2235519(V)"},{"code":"1131","name":"BODY DIE CAST RECEIVER MACH-305420-76169990"},{"code":"1134","name":"Housing G07 L-Bl DA 71078212"},{"code":"1135","name":"PCB Fastening Bracket PW7X DA 71078204"},{"code":"1136","name":"COVER D41 L GR AL M 77 -71103499"},{"code":"1137","name":"Bracket Upper Guide-2503-01011"},{"code":"1138","name":"CASTING -BKT SEPERATOR BAR END-MA255413011-00 (14MM)"},{"code":"1139","name":"Bracket Separator Bar Casting-MA255411021-00 (18MM)"},{"code":"1141","name":"Capsule Steering Column Support-26119791"},{"code":"1142","name":"Capsule, Strg Column Support-26060424"},{"code":"1143","name":"Cover Threaded Dust U202 Gear -38005482"},{"code":"1144","name":"HOUSING STRG COLUMN (STD) -260 95661"},{"code":"1145","name":"PLUG  ADJUSTER  U202 -38005483"},{"code":"1146","name":"Plug Adjuster TATA X1 GEAR-38004332"},{"code":"1147","name":"DEEP RECESS  HOUSING -110MM (18W)-20-0205-1"},{"code":"1149","name":"Cover Finishing-3266-C-0032"},{"code":"1150","name":"SAMPLE CASTING"},{"code":"1151","name":"COMPONENT 22"},{"code":"1152","name":"COMPONENT 23 K-023"},{"code":"1153","name":"COMPONENT 31 K-031"},{"code":"1154","name":"GEHOUSE C08874-001"},{"code":"1155","name":"JOINT 35"},{"code":"1156","name":"Base housing W-06 EN M24X1.5  2X1/2 NPT   bl-71122461"},{"code":"1157","name":"Thread ring M120x2.0 To D326 mach Al DA-71326455"},{"code":"1158","name":"Thread ring M120x2.0 To D327 mach Al  DA-71326453"},{"code":"1159","name":"Neck piece f.H338 300 Pmass cast Al DA-71330321"},{"code":"1160","name":"Neck piece f.H339 300 Pmass mach Al DA-71330324"},{"code":"1161","name":"Holder M120x2 G306 Term. Comp.mach Al DA-71326474"},{"code":"1162","name":"Holder M120x2 G306 elect. Comp.mach Al DA-71326476"},{"code":"1163","name":"Adapter H340 100Pmass l-bl -71352402"},{"code":"1164","name":"SCREEN HOLDER 22 -B050188010000"},{"code":"1165","name":"Build-in ring triangle springs-13"},{"code":"1166","name":"Build-in ring-MDL4x-13 - 20-0385-1"},{"code":"1167","name":"Front-MDL-4x-13-Medium - 20-0354-1"},{"code":"1168","name":"Front-MDL-4x-13-narrow - 20-0353-1"},{"code":"1169","name":"Front-MDL-4x-13-wide - 20-0355"},{"code":"1170","name":"Gimbal joint-MDL4x-13 Downlight"},{"code":"1171","name":"Joint-MDL4x-13 - 20-0383-1"},{"code":"1172","name":"Lamp housing MDL4x-13 - 20-0352-1"},{"code":"1173","name":"Pendant joint-MDL4x-13 - 20-0384-0"},{"code":"1174","name":"Rotation-ring-MDL4x-12"},{"code":"1175","name":"Tilt joint-MDL4x-13 - 20-0382-1"},{"code":"1176","name":"S Spot Arm MDL7x-13 - 20-0308-1"},{"code":"1177","name":"Build-in ring-13c - 20-0381-1"},{"code":"1178","name":"Canopy-13 - 20-0528-1"},{"code":"1179","name":"Joint-MDL7x-13 - 20-0283-1"},{"code":"1180","name":"S Sopt Lamp housing S-10 - 20-0307-1"},{"code":"1181","name":"Pendant joint MDL7x-13 - 20-0379-0"},{"code":"1182","name":"Tilt joint MDL7x-13c - 20-0380-1"},{"code":"1183","name":"Top plate UDH-9"},{"code":"1184","name":"UDH-bracket-9"},{"code":"1185","name":"RAY S Trackspot Driver Housing Black 20-0094-2 - FSL-P-SYS(70-32)-120-02_01"},{"code":"1186","name":"Front-MDL7x-13 Medium - 20-0387"},{"code":"1187","name":"Front-MDL7x-13 Narrow - 20-0386-1"},{"code":"1188","name":"Front-MDL7x-13 Wide-20-0388-1"},{"code":"1189","name":"Lamp housing MDL7x-13 - 20-0389"},{"code":"1190","name":"RAY S Trackspot Heatsink White / Black 20-0011-1 - FSL-P-SYS(70-32)-120-01_01"},{"code":"1191","name":"FRONT RING-F-32 - FSL-P-SYS(70-32)-120-01_02"},{"code":"1192","name":"RAY ARM Handle Black 20-0055-2 - FSL-P-SYS(70-32)-120-05-01"},{"code":"1193","name":"RAY ARM Cap Black 20-0056-2 - FSL-P-SYS(70-32)-120-05_02"},{"code":"1194","name":"RAY ARM Cover Black 20-0057-2 - FSL-P-SYS(70-32)-120-05_03"},{"code":"1195","name":"50MM CAP 4 WAY - T220801040000"},{"code":"1196","name":"50MM CAP 2 WAY - T220801020000"},{"code":"1197","name":"50MM END CAP - T220801050000"},{"code":"1198","name":"50MM CAP 3 WAY - T220801030000"},{"code":"1199","name":"XTRA M-DL OUTER BODY - 20-0775-1"},{"code":"1200","name":"Half House Shell PMF DN 65 DA L-bl-50053438"},{"code":"1201","name":"Half Hous.Shell PMF DN 80 DA L-Bl-50053440"},{"code":"1202","name":"Half House Shell PMF DN 100 DA L-bl-50053442"},{"code":"1203","name":"Holder F .Connector PL3 MID1-71356130"},{"code":"1204","name":"BASE HOUSING W06 EN 1/2NPT / 2xM20x1.5-71358957"},{"code":"1205","name":"Base W06 EN 1/2NPT-M20x1,5 RAL5012-71358941"},{"code":"1206","name":"Base W06 EN 1/2NPT / 2x 1/2NPT-71358958"},{"code":"1207","name":"Base W06 EN 1/2NPT / 1/2NPT RAL5012-71358954"},{"code":"1207G","name":"Base W06 EN 1/2NPT-1/2NPT RAL7035-71601535"},{"code":"1208","name":"Universal driver housing-9"},{"code":"1209","name":"Boom S Rotating Ring-FSL-P-BOOM-S-02-02 - 20-0255-1"},{"code":"1210","name":"Boom S Heat Sink-FSL-P-BOOM-S-01-01 - 20-0253-1"},{"code":"1211","name":"Boom S Build in Ring-FSL-P-BOOM-S-02-01 - 20-0254-1"},{"code":"1212","name":"50MM Flat trim 2MM end cap-T221501010000"},{"code":"1213","name":"FRONT RING S-10 - 20-0284-1"},{"code":"1214","name":"Cover Housing W06 US flat-71309087"},{"code":"1215","name":"Cover Housing W06 US display-71307946"},{"code":"1216","name":"Base housing W06 US 1/2NPT /1/-71310165"},{"code":"1217","name":"Base housing W06 US 1/2NPT /3/-71310169"},{"code":"1218","name":"Base housing W06 US 1/2NPT / M2-71310171"},{"code":"1219","name":"Capsule, strg column support-38252549"},{"code":"1220","name":"Housing base W22 / TA 20AB-307591"},{"code":"1221","name":"Housing Cover w22/TA20AB RAL7035 - 71395511"},{"code":"1222","name":"TA 20L _LID_3066-307638"},{"code":"1223","name":"TA 20L_BASE_PART_3066-307641"},{"code":"1224","name":"circular downlight recessed body-20-0472-1"},{"code":"1225","name":"C-Dl SM body V3-15"},{"code":"1226","name":"SDL Reccessed body V2-sharp3"},{"code":"1227","name":"SDL Reccessed body SMB V4"},{"code":"1228","name":"Floating screen connecter clamp"},{"code":"1229","name":"screen end cap 15MM  - R810101010000"},{"code":"1230","name":"Side screen holding clamp - W143103010000"},{"code":"1231","name":"Screen cap 120D for 18MM screen-Mail-mazak5"},{"code":"1232","name":"STAND BOTTOM ROLLER-R3401-11321-00"},{"code":"1233","name":"Base Housing W22 M24x1.5-NPT1/2 - 71395523"},{"code":"1234","name":"Base Housing W22 NPT1/2-M20x1.5 - 71395524"},{"code":"1235","name":"Housing bottom W22 NPT1/2-NPT1/2 - 71395521"},{"code":"1236","name":"Cover D330 M115 W/O SCREEN - 21008936-71397112"},{"code":"1237","name":"Holder M120x2 G306 Term. Comp.mach Al DA-71377303"},{"code":"1238","name":"Cover-_display_Exd_1408 - 140810004-71260416"},{"code":"1239","name":"Cover-_display_std_1408 - 140810091-71260414"},{"code":"1240","name":"Housing_1408 - 140810002"},{"code":"1241","name":"Circuit.carr.elect - 211009782 N-Exd"},{"code":"1242","name":"Housing G331 n-Ex -71394934"},{"code":"1243","name":"Adapter H318 300Pmass L-bI Al Exd DA - 71240474"},{"code":"1244","name":"Adapter H319 300Pmass L-bI Al DA - 71240477"},{"code":"1245","name":"Adapter H326 300PmagP <300 L-bI Al DA - 71240492"},{"code":"1246","name":"Housing G327-71222453"},{"code":"1247","name":"Housing cover flat W24 - 71400800"},{"code":"1248","name":"Base Housing W24 - 71400801"},{"code":"1249","name":"JIONT LMS -4X15-a-20-0499-0"},{"code":"1250","name":"JIONT -LMS-17-20-0500-0"},{"code":"1251","name":"5081-BUILD IN FRAME  ER - 20-0584"},{"code":"1252","name":"TOP TRACK COVER -17-20-0502-0"},{"code":"1253","name":"TOP TRACK  CONNECTOR  17-20-0501-0"},{"code":"1254","name":"CIRCUIT CARR ELECT EXDE"},{"code":"1255","name":"Housing G304-71224896"},{"code":"1256","name":"Base W06 EN M24x1,5 / G1/2\" - 71098499"},{"code":"1257","name":"Adapter H324 300PmagH L-bI Al DA - 71240486"},{"code":"1258","name":"END SCREEN HOLDER 8,  12, 18 MM"},{"code":"1259","name":"SF CENTER SCREEN HOLDER COUNTER 8, 12, 18 MM"},{"code":"1260","name":"40X40 2 WAY CONNECTOR"},{"code":"1261","name":"40X40 3 WAY CONNECTOR"},{"code":"1262","name":"40X40 2 WAY 10 DEGREE CONNECTOR LHS"},{"code":"1263","name":"40X40 2 WAY 10 DEGREE CONNECTOR RHS"},{"code":"1264","name":"40X40 WING CONNECTOR"},{"code":"1265","name":"40X40 FILLER"},{"code":"1266","name":"40X40  SLIDER NUT"},{"code":"1267","name":"TOP MIDDLE SUPPORT  DRF-DEV -1369L"},{"code":"1268","name":"TOP SIDE SUPPORT  DRF-DEV-1369K"},{"code":"1269","name":"Base housing W22 M24x1,5-M20x1,5 - 71395516"},{"code":"1270","name":"LOOP LEG CONNECTOR"},{"code":"1271","name":"HEAT SINK-FSL-P-R11TRIO-00-01-05 - 20-0515-1"},{"code":"1272","name":"PISTON  2230 - A - C001Z"},{"code":"1273","name":"BODY CYLINDER 3261-A-C001Z"},{"code":"1274","name":"COVER BLIND PART [ 140810024 ] ENAC 43400 - 71260421"},{"code":"1275","name":"Housing_0215 - 71273428"},{"code":"1276","name":"Circuit carrier for CPU / modem PL300 - 211005119-71225012"},{"code":"1277","name":"Housing_G324-71219750-71366387"},{"code":"1278","name":"Adapter H348 PL3 Pmag WG Al-71451357"},{"code":"1279","name":"Field housing base p. W18/RIA15 RAL5012-71156970"},{"code":"1280","name":"Omini End Cap - 20-0682-0"},{"code":"1281","name":"Front field h.W18/RIA15 RAL7035 ALSI10Mg-71156968"},{"code":"1282","name":"HOUSING-N-SE002"},{"code":"1283","name":"Adapter H305 200P mag-71491846"},{"code":"1284","name":"Adapter H311 200PmassF 4301-71491848"},{"code":"1285","name":"FRONT REFLECTOR RING"},{"code":"1286","name":"LID 20MM"},{"code":"1287","name":"LID 30MM"},{"code":"1288","name":"BOX"},{"code":"1289","name":"Front RIA15 RAL7035 ALSI10Mg(Fe) - 71156946"},{"code":"1290","name":"Housing F12 (MALBURG) / Housing elec.PW77    L-bl PES 2xM20x1,5- 50083673"},{"code":"1291","name":"Holding ring gl-disc D307/D311/D324 AI-71307405"},{"code":"1292","name":"Circuit carr. to Terminalpr.K321 Al mach - 71225015"},{"code":"1293","name":"RMJ Heat Sink - 20-0576-X"},{"code":"1294","name":"RMJ TRIMLESS FRAME - 20-0580-X (V2 RMJ Ring) - 20-0580-1"},{"code":"1295","name":"RMJ BUILD IN FRAME-20-0579-X (RMJ Ring v1) - 20-0579-1"},{"code":"1296","name":"PERD CONICAL DEPRESSION CAP - 20-0639-1"},{"code":"1297","name":"LEG"},{"code":"1298","name":"30X30 POST BOTTOM"},{"code":"1299","name":"30x30 Post Top Cap"},{"code":"1157-1","name":"Thread ring M120x2.0 To D326 mach 71377486"},{"code":"1301","name":"RAY M RECESS HEAT SINK (16 RIBS) - 20-0214-1"},{"code":"1302","name":"FT MECH HOLDER"},{"code":"1303","name":"FT MECH CLAMP"},{"code":"1304","name":"FT 7530 CONNECTOR"},{"code":"1305","name":"Mounting bracket for K303-71485136"},{"code":"1306","name":"FT 6030 Flat oval connector LHS"},{"code":"1307","name":"FT 6030 flat oval connector RHS"},{"code":"1308","name":"IPG4 Array Build in Ring"},{"code":"1309","name":"Block carrier gear-R3631-21032"},{"code":"1310","name":"HYPER WAY END CAP - 20-0722-X"},{"code":"1240M","name":"Housing TMT16X alu M20x1,5 RAL5012-51004143"},{"code":"1240N","name":"Housing TMT16X alu 1/2-14NPT RAL5012-51004144"},{"code":"1240G","name":"Housing TMT16X alu G1/2 RAL5012-51004784"},{"code":"1275M","name":"Housing base part W01 M20x1,5 blue-71273404"},{"code":"1275N","name":"Housing base part W01 1/2 -14NPT blue-71273408"},{"code":"1275G","name":"Housing base part W01 G1/2 blue-71273407"},{"code":"1311","name":"Base W06 EN closed 2xM20 grey-71145721"},{"code":"1312","name":"Nova Large Heat sink - 20-0153-01"},{"code":"1313","name":"Xtra M Flex 1X Frame 20-0144-0-Model"},{"code":"1314","name":"Xtra M Flex 2X Frame 20-0145-0-Model"},{"code":"1315","name":"Xtra M Flex Cover plate 20-0017-0-Model"},{"code":"1316","name":"STAND BOTTOM ROLLER-ER3401-11401-00"},{"code":"1317","name":"Vario Track Driver Housing-20-0016-1"},{"code":"1318","name":"Vario Track Housing Cover-20-0015-1"},{"code":"1319","name":"Vario Track Lamp Housing-20-0137-1"},{"code":"1279G","name":"Field housing base p. W18/RIA15 RAL7035-71157542"},{"code":"1320","name":"Xtra M Flex 3X Frame- 20-0141-0"},{"code":"1321","name":"Razor 2RDB Led Plate - 20-0765-0"},{"code":"1322","name":"Razor Pole Cover - 20-0766-0"},{"code":"1323","name":"Razor Pole Base - 20-0767-0"},{"code":"1324","name":"Razor Housing - 20-0764-0"},{"code":"1325","name":"NOVA MINI HEAT SINK-10(VER2)-20-0087-1"},{"code":"1326","name":"Zona Perdu Round 6X & 7X Housing Recessed - 20-0902-0"},{"code":"1326-1","name":"Zona Perdu Round 6X & 7X Housing Trimless - 20-0903-0"},{"code":"1327","name":"Zona Perdu Round 6X & 7X Frame Trimless - 20-0904-0"},{"code":"1328","name":"Perdu Eye Ball 10mm Cap - 20-0908-1"},{"code":"1329","name":"Perdu Eye Frame Recessed-20-0912-1"},{"code":"1330","name":"Perdu Eye Front Cap-20-0911-1"},{"code":"1331","name":"Perdu Eye Heatsink-20-0910"},{"code":"1332","name":"Perdu Eye Frame Trimless-20-0913"},{"code":"1333","name":"Accessory Rail Connector-Die Cast"},{"code":"1334","name":"Cover - Receiver die casting - 0660788"},{"code":"1335","name":"Cover - B.C Access - 661031"},{"code":"1336","name":"Rotor Cover-20-1067-X"},{"code":"1337","name":"SL- (Solid Wood Leg) Connector"},{"code":"1338","name":"ROTOR BODY-20-1066"},{"code":"1339","name":"Housing Holder - Die Cast"},{"code":"1340","name":"Panto Heatsink-20-1226-X"},{"code":"1341","name":"Panto Hinge Disk-20-1227-X"},{"code":"1342","name":"Panto Hinge-20-1228-X"},{"code":"1343","name":"Panto Hinge Single-20-1229-X"},{"code":"1344","name":"APT Tandem Arm-TD-D300"},{"code":"1345","name":"APT Tandem Leg-TD-D300"},{"code":"1346","name":"MDL Fix Frame Recessed - 20-1254-0"},{"code":"1347","name":"EOS Fix Frame Recessed - 20-1249-0"},{"code":"1348","name":"MDL Fix Frame Trimless - 20-1255-0"},{"code":"1349","name":"EOS Fix Frame Trimless - 20-1250-0"},{"code":"1350","name":"Opti large track spot reflector housing-20-1208-0"},{"code":"1350-1","name":"Opti large track spot Reflector housing-20-1399-0"},{"code":"1351","name":"Rapid Rail Inline Connector"},{"code":"1352","name":"Block Draft Rod - R2103-41020"},{"code":"1353","name":"Opti large track spot rheatsink-20-1207-0"},{"code":"1354","name":"Opti large track spot Arm-20-1209-0"},{"code":"1355","name":"Opti large DL Recessed Mounting Ring-20-1262-0"},{"code":"1356","name":"Opti large DL Heat Sink-20-1261-0"},{"code":"1356-1","name":"Opti large WW+DL Heat Sink-20-1263-0"},{"code":"1357","name":"Rapid Rail 3 way Connector"},{"code":"1358","name":"Rapid Rail 2 way 90° Connector"},{"code":"1359","name":"Rapid Rail 4 way Connector"},{"code":"1360","name":"82mm L Wing Connector"},{"code":"1361","name":"82mm L Slider"},{"code":"1378","name":"HOUSING FOR GDMPC 100"},{"code":"2100","name":"VALVE BODY -CIB42744882005"},{"code":"2101","name":"BOOSTER COVER DIE CASTING-16300-1327"},{"code":"2102","name":"Bottom Casting -12372-492"},{"code":"2103","name":"Bottom Hsg Casting -12372-452"},{"code":"2104","name":"BOTTOM HOUSING 61VH-TGX16230-116"},{"code":"2106","name":"Center Casting Machined-4952-98"},{"code":"2107","name":"Center Casting Painted -2155-277"},{"code":"2108","name":"760 Enclosure Cover,Beacon Die Casting-TGX:16300-1482"},{"code":"2109","name":"EXHAUST RING DIE CASTING -10636-13"},{"code":"2111","name":"DIAPHRAGM RING CASTING-10636-43"},{"code":"2112","name":"DIAPHAGM RING -10342-75"},{"code":"2113","name":"Diaphragm Ring-12372-131"},{"code":"2114","name":"EXHAUST RING-6750-62"},{"code":"2116","name":"HOUSING 61VH-TGX16230-98"},{"code":"2117","name":"760 Enclosure Cover,Beacon Die Casting-TGX:16300-1481"},{"code":"2118","name":"Ring Die Casting -3092-18"},{"code":"2120","name":"Ring Die Cast-6750-88"},{"code":"2121","name":"Base Die Casting-6750-2"},{"code":"2124","name":"Diaphragm Ring Casting-8883-13"},{"code":"2125","name":"SPAN LEVER Casting -16300-365"},{"code":"2126","name":"Top Housing Casting -12372-462"},{"code":"2127","name":"TOP CASTING MACHINED-10342-74 FAMILY"},{"code":"2128","name":"Al. Top Casting -2155-1"},{"code":"2129","name":"Top Housing Casting-6750-433"},{"code":"2133","name":"CLAMP RING -C1B42710297001"},{"code":"2134","name":"Contact Cage-CIB42709223001 (Aloj Lam Contato  A7B91500103712)"},{"code":"2136","name":"PISTON -A7B91502964260-DRWAING C1B42709241001"},{"code":"2137","name":"VALVE BODY -42709233-001"},{"code":"2138","name":"A-V Gehause MID Lackiert-A5E00089898"},{"code":"2140","name":"HOUSING N.V.RAM CASTING - CB09010"},{"code":"2142","name":"FROST  HOUSING GRILLE - P-023700-0092"},{"code":"2143","name":"DIAPH RING -885-12"},{"code":"2144","name":"DOMCVX XX6 KühlkörperDOMINO CURVE XX 6x6-801632"},{"code":"2145","name":"DOMCVXXX9 Kuhlkorper  Domino Curve 9x9 Guss-806528"},{"code":"2146","name":"END DECCEL 890421"},{"code":"2147","name":"SUPPORT -AGSH31051-02"},{"code":"2148","name":"POSITIONING DEVICE WITH  PERMA LOGO -101568"},{"code":"2149","name":"Heat Sink -AGS002448-01"},{"code":"2150","name":"HEAT  SINK BELOW -AGSH36807-01"},{"code":"2151","name":"HEAT SINK ABOVE -AGSH36809-01"},{"code":"2152","name":"Pressure Ring -CIB42706123-001"},{"code":"2154","name":"DIAPHRAGM RING CASTING-12372-89"},{"code":"2155","name":"LENS CLAMP PLATE/DIE CASTING-16300-1013"},{"code":"2156","name":"LENS CLMP PLT, STD BLK, DIE CAST-16300-1297"},{"code":"2160","name":"Domeda 1x9 Rahmen oben Domino Edge- 805490"},{"code":"2161","name":"DOMCVX 1X9 RAHMEN UNTEN DOMINO CURVE 9x9 GUSS-806409"},{"code":"2162","name":"DOMCVA X09 RAHMEN OBEN GUSS DOMINO 806526"},{"code":"2164","name":"FLANGE DIE CASTING -16353-6"},{"code":"2165","name":"GE HOUSE HEAT SINK 899776"},{"code":"2166","name":"GEHOUSE HEAT SINK 899715"},{"code":"2167","name":"GRILL HOUSING P0237000156"},{"code":"2168","name":"GUIDE PLATE-3HT253702010000"},{"code":"2169","name":"KHUL KORPER AKB"},{"code":"2170","name":"LEUCHTENGEHAUSE-891738"},{"code":"2171","name":"LIMIT SWITCH 330017"},{"code":"2172","name":"LIMIT SWITCH 330019"},{"code":"2173","name":"MOTOR CAP A37627-001"},{"code":"2175","name":"RAHMEN  UNTEN 6X6 DOMEDE 6x6-805841"},{"code":"2177","name":"SEITENTEIL LSA/LOA/LPA-894290"},{"code":"2180","name":"DOMCVX X06 RAHM.0. Guss DOMINO 106 Aufbau-805857"},{"code":"2181","name":"DOMEVA 109 RAHMEN UNTEN DOMINO EDGEXX-806814"},{"code":"2182","name":"END PLATE-10-110-01"},{"code":"2184","name":"CONTACT RING FEMALE-10042388"},{"code":"2185","name":"CONTACT RING MALE-10042389"},{"code":"2186","name":"FLANSCHRING-1302160010"},{"code":"2187","name":"CLAMPING SEGMENT-CIB42710254001"},{"code":"2189","name":"SCREW SHIELDING-C1B4274811101"},{"code":"2190","name":"FACHBODENT RAGER-AKBLUP001R"},{"code":"2192","name":"Exhaust Ring Die Casting-10636-44"},{"code":"2194","name":"DIAPH RING -4551-87"},{"code":"2195","name":"WINKELADAPTER HLT/LIFT 25 -316-000-1-00038 -106728"},{"code":"2197","name":"INSERT-AGSH 31199-01"},{"code":"2198","name":"Bearing Double - DRCNO1767 - 01"},{"code":"2199","name":"Winkeltrager, 204 - 000 - 1 - 00203 - 102697"},{"code":"2200","name":"FIX FOR BELLOWS - (SU3-191)"},{"code":"2201","name":"End Cap-A46212-1"},{"code":"2202","name":"Encl. Botm (As cast)-E-201-01-01-02"},{"code":"2203","name":"Yoke Actuator-34-1238-7"},{"code":"2204","name":"Right Entry Guide and Locking prototype-QGH44976"},{"code":"2205","name":"Left Entry Guide and Locking prototype-QGH44977"},{"code":"2206","name":"Halter T - Stuck (With hole)-A628 815 02 14"},{"code":"2207","name":"Halter T - Stuck (With out hole)-A628 815 02 14"},{"code":"2208","name":"Resolver housing casting-CC45785-001"},{"code":"2209","name":"Encoder Adapter casting-CC45790-001"},{"code":"2210","name":"Encoder Adapter casting-CC45795-001"},{"code":"2211","name":"Encoder Adapter casting-CC45810-001"},{"code":"2212","name":"Encoder Adapter casting-CC45816-001"},{"code":"2213","name":"FAN TOP"},{"code":"2214","name":"D12020 DIE CAST DRIVE BOX - AMR053"},{"code":"2215","name":"D12020 DIE CAST DRIVE COVER - AMR054"},{"code":"2216","name":"D12020 DIE CAST REAR FLANGE - 431900224050"},{"code":"2217","name":"Motor Cap, J866 SER, CC83015"},{"code":"2218","name":"Adapter MIL10 rd"},{"code":"2219","name":"Square Flanschadapter DG"},{"code":"2220","name":"FUHRUNGSGEHAUSE-1-600 500"},{"code":"2221","name":"LAGERBOCK AUS-1-994 309/22"},{"code":"2222","name":"FIELD DISTRIBUTOR-51235653F002"},{"code":"2223","name":"PLATTE - C50825"},{"code":"2224","name":"MOTORKAPPE CA92794"},{"code":"2225","name":"LAGERBOCK EIN-2-994 288/22"},{"code":"2226","name":"Die Cast Moter Cover-431900662150"},{"code":"2227","name":"Gehauseboden P06-E-000073_V01"},{"code":"2228","name":"Gehauseboden P08-E-000074_V"},{"code":"2229","name":"Flange raw part - 04-DSK0"},{"code":"2231","name":"PT COMP VT CONTACT-03405292F002"},{"code":"2232","name":"PROFIL SUPPORT-03405702F002"},{"code":"2233","name":"Right Entry Guide-3405707F002"},{"code":"2234","name":"Left Entry Guide-03405708F002"},{"code":"2235","name":"Housing PL IL Raw Part - 04-DTZ4"},{"code":"2236","name":"Housing PL MIL Raw Part - 04-DTZ9"},{"code":"2237","name":"Middle connector-870-4789"},{"code":"2238","name":"Corner Coneector-870-4394"},{"code":"2239","name":"BACK COVER-CC9934"},{"code":"2240","name":"Coperchio Drive DR2020-AMR062"},{"code":"2241","name":"MOOG PLATE-AMR-63"},{"code":"2242","name":"DRIVE BOX - AMR061"},{"code":"2243","name":"DRIVE BOX - AMR068"},{"code":"2244","name":"HEAT SINK CHASSIS DIE CAST MPPT"},{"code":"2245","name":"COVER WIRE ACCESS \nDIECAST MPPT"},{"code":"2246","name":"Gehauseboden P06-E-000073_V02"},{"code":"2247","name":"PLOMBIERKAPPE-C75401"},{"code":"2248","name":"BEARING SHELL ABOVE"},{"code":"2249","name":"Flange raw part axial 04-E556"},{"code":"2250","name":"Flange raw part cable/plug 04-E557"},{"code":"2251","name":"Flange raw part MIL 04-E558"},{"code":"2252","name":"LOW VOLTAGE BOX LARGE - GA0-03-021"},{"code":"2253","name":"COVER LOW VOLTAGE BOX LARGE - GA0-03-022"},{"code":"2254","name":"LOW VOLTAGE BOX  LARGE & COVER LOW VOLTAGE BOX LARGE ASSEMBLY PARTS - GA1-03-001"},{"code":"2255","name":"COVER LOW VOLTAGE BOX LARGE"},{"code":"2256","name":"COVER LOW VOLTAGE BOX LARGE"},{"code":"2257","name":"End plate-16-110-01"},{"code":"2258","name":"LAGERAUFNAHME SIM.LED 8000"},{"code":"2259","name":"BOX - JYT26604"},{"code":"2260","name":"ENCODER HOUSING-CA32018-001"},{"code":"2261","name":"BRAKE HOUSING-CA34263"},{"code":"2262","name":"DRIVE BOX - AMR073"},{"code":"2263","name":"SEAL CAP"},{"code":"2264","name":"CT-SUPPORT-JYT19290"},{"code":"2265","name":"SELECTOR SHAFT-03403357F0"},{"code":"2266","name":"BEARING-03401924F002"},{"code":"2267","name":"Yoke  Housing 26 (Ø 28 mm) - B19-00725"},{"code":"2268","name":"Flangia Fas H115-4319 002 2309"},{"code":"2268-1","name":"Flangia Fas H115-431900223100"},{"code":"2268-2","name":"FLANGIA FAS H115-BUSH"},{"code":"2269","name":"Positioning device with out Perma Logo-101579"},{"code":"2270","name":"YOKE HOUSING 24 (Ø 26 mm)-F15-22627"},{"code":"2271","name":"Gehauseboben P08 V2"},{"code":"1135R","name":"PCB Fastening Bracket PW7X DA 71078204"},{"code":"1137-1","name":"Bracket Upper Guide-R2503-01013-00"},{"code":"116-1","name":"COVER D307 L GR-71224754 (NST)"},{"code":"118-1","name":"COVER D309 L-GR M122-71224761 (NST)"},{"code":"1260-1","name":"40X40 1 WAY CONNECTOR LHS"},{"code":"1260-2","name":"40X40 1 WAY CONNECTOR RHS"},{"code":"1261-1","name":"40X40 3 WAY CONNECTOR WITH PRONGES"},{"code":"1293-1","name":"EOS HEAT SINK WFL (RMJ HEATSINK) -20-0711-2"},{"code":"1293-2","name":"EOS HEATSIN SP (RMJ HEATSINK) - 20-0576-2"},{"code":"1293-3","name":"EOS HEAT SINK MFL+WW (RMJ HEATSINK) - 20-0710-2"},{"code":"134N","name":"Housing PmagD DN 100 L-BL-71458696"},{"code":"135N","name":"Housing -PmagD DN 25 L-BL-71458681"},{"code":"136N","name":"Housing PmagD DN 40 L-BL-71458684"},{"code":"137N","name":"Housing PmagD DN 50 L- Bl-71458685"},{"code":"138N","name":"Housing PmagD DN 65 L-BL-71458690"},{"code":"139N","name":"Housing PmagD DN 80 L-Bl-71458693"},{"code":"155-A","name":"CENTER SCREEN HOLDING CLAMP-A0722030100000"},{"code":"155-B","name":"CENTER SCREEN HOLDING CLAMP-A0722030100000"},{"code":"162-1","name":"SMARTPro,BLIND CAP,ALUMINUM LM6,DRG.NO.- F4C2012625"},{"code":"163-1","name":"SMARTPro,MIDDLE HOUSING,ALUMINIUM LM6,DRG.NO.- 12621"},{"code":"164-1","name":"VFC-097 CONVERTER,WINDOW CAP,CASTING - 10-022-1035826"},{"code":"180-1","name":"COVER -ASSY -PEDESTAL SIDE - MC"},{"code":"180-2","name":"COVER ASSY PEDESTAL SIDE-R2201-03050-00"},{"code":"184-1","name":"BRACKET RING PLATE 70G-R2511-01024-00"},{"code":"184-2","name":"BRACKET RING PLATE 70G-R2511-11043-00"},{"code":"184-3","name":"BRACKET RING PLATE 70G-R2511-21024-00"},{"code":"184-4","name":"BRACKET RING PLATE 70G-R2511-21044-00"},{"code":"187-1","name":"BRACKET RING PLATE 75G-R2511-01013-00"},{"code":"187-2","name":"BRACKET RING PLATE 75G-R2511-11033-00"},{"code":"187-3","name":"BRACKET RING PLATE 75G-R2511-21014-00"},{"code":"187-4","name":"BRACKET RING PLATE 75G-R2511-21034-00"},{"code":"2100-1","name":"Nrv Casting (1s 145kv)PTD4844882005"},{"code":"2102-1","name":"Bottom Casting Machined-12372-112"},{"code":"2103-1","name":"Bottom Casting Machining-12372-158"},{"code":"2103-2","name":"Bottom Housing-14811-3"},{"code":"2106-1","name":"Center Casting Machined-4952-100"},{"code":"2108-1","name":"Cover Standard 760-TGX:16300-479"},{"code":"2109-1","name":"CTR DIAPH RING -10637-10"},{"code":"2109-2","name":"UPPR DIAPH RING-10636-18"},{"code":"2111-1","name":"DIAPH RING MACH-10636-22"},{"code":"2111-2","name":"Bottom Diaph Ring -14032-2"},{"code":"2112-1","name":"DIAPHAGM RING -8377-76"},{"code":"2113-1","name":"Diaphragm Ring-14811-54"},{"code":"2117-1","name":"IND COVER 760-TGX:16300-477"},{"code":"2118-1","name":"INNER RING PAINTED-3565-73"},{"code":"2118-2","name":"LOWER RING BTM LOADER PAINTED-7058-138"},{"code":"2118-3","name":"UPPER RING PAINTED -7058-140"},{"code":"2120-1","name":"Ph39T Ring Mach-6750-90"},{"code":"2121-1","name":"PILOT BASE MACH-6751-2"},{"code":"2121-2","name":"PILOT BASE-12334-409"},{"code":"2124-1","name":"Reduction Ring-10916-2"},{"code":"2124-2","name":"Reduction Ring - 4297-22"},{"code":"2124-3","name":"Reduction Ring -4297-23"},{"code":"2124-4","name":"Reduction Ring -4297-24"},{"code":"2124-5","name":"Reduction Ring -4297-201"},{"code":"2125-1","name":"760 SPAN LEVER ASSEMBLY -A6X30004458"},{"code":"2126-1","name":"Top Casting Machined -12372-465"},{"code":"2127-1","name":"TOP CASTING MACHINED-TGX-10342-276"},{"code":"2127-2","name":"TOP CAST MACH TGX-10342-277"},{"code":"2127-3","name":"TOP CAST MACH TGX-10342-278"},{"code":"2128-1","name":"TOP CSTG-MACH-2155-85"},{"code":"2128-2","name":"Top Housing Updated A6X30013965"},{"code":"2129-1","name":"Top Housing Casting-Painted A6X30005315"},{"code":"2129-2","name":"Top Housing Machined-6754-2"},{"code":"2134-1","name":"Finger Contact Holder -PTD4809223001"},{"code":"2136-1","name":"MOVING CONTACT HOLDER (M/C)72-KV-PTD4809241001"},{"code":"2136-2","name":"Copper Sleeve-4HT 427 09205 (BUSH)"},{"code":"2136-3","name":"Piston PTD 5901828001"},{"code":"2137-1","name":"NRV MACHINED 72 KV-PTD4809233001"},{"code":"2138-1","name":"A-V Gehause MID Lackiert-ASE00090951"},{"code":"2138-2","name":"Av-Geh Lackiert-A5E00742009"},{"code":"2138-3","name":"A-V Gehause MID Lackiert-ASE00090955"},{"code":"2140-1","name":"HOUSING N.V.RAM MODULE-CB84058-001/T"},{"code":"2140-2","name":"HOUSING N.V.RAM MODULE -CB98329-001/T"},{"code":"2154-1","name":"DIAPHRAGM RING -14811-16"},{"code":"2164-1","name":"FLANGE 353  & CASE ASSY-A5E36545238"},{"code":"2189-1","name":"SCREW SHIELDING IU-PTD4848111001"},{"code":"2192-1","name":"CTR DIAPH RING-10637-9"},{"code":"2192-2","name":"CTR DIAPH RING-10636-21"},{"code":"2194-1","name":"DIAPHRAGM RING 8665-12"},{"code":"2194-2","name":"DIAPH RING Machined-7298-4"},{"code":"2194-3","name":"DIAPH RING-10157-2"},{"code":"2194-4","name":"DIAPH RING 8790-2"},{"code":"2202-1","name":"Encl. Botm (Coated)-E-201-01-01-02"},{"code":"2208-1","name":"Resolver housing Finishing-CC45786 - 001"},{"code":"2209-1","name":"Encoder Adapter Finishing-CC45791-001"},{"code":"2210-1","name":"Encoder Adapter Finishing-CC45796-001"},{"code":"2211-1","name":"Encoder Adapter Finishing-CC45812-001"},{"code":"2212-1","name":"Encoder Adapter Finishing-CC45817-001"},{"code":"2214-1","name":"D12020 MACHINE DRIVE BOX - AMR051"},{"code":"2216-1","name":"D12020 MACHINE REAR FLANGE - 431900223730"},{"code":"2217-1","name":"Motor Cap, J866 SER, CC66246-001"},{"code":"2220-1","name":"FUHRUNGSGEHAUSE-AGS600531-01"},{"code":"2220-2","name":"FUHRUNGSGEHAUSE-AGSC00405-01"},{"code":"2221-1","name":"LAGERBOCK AGS6994309-01"},{"code":"2225-1","name":"LAGERBOCK EIN-AGS694288-01"},{"code":"2227-1","name":"Gehauseboden P06-E-000073_V01 BLACK"},{"code":"2227-2","name":"Gehauseboden P06-E-000073_V01 BLUE"},{"code":"2228-1","name":"Gehauseboden P08-E-000074_V BLACK"},{"code":"2228-2","name":"Gehauseboden P08-E-000074_V BLUE"},{"code":"2229-1","name":"Flange 25 - 04-DSK1"},{"code":"2229-2","name":"Flange 38 - 04-DSK2"},{"code":"2229-3","name":"Flange HD - 04-DSK3"},{"code":"2229-4","name":"Flange Ventas - 04-DTZ1"},{"code":"2235-1","name":"HD Housing Cable - 04-DUC1"},{"code":"2235-2","name":"HD Housing Connector - 04-DUC3"},{"code":"2235-3","name":"Housing IL Cable - 04-DU04"},{"code":"2235-4","name":"PL Housing Cable - 04-DTZ5"},{"code":"2235-5","name":"Housing PL + IL Connector - 04-DTZ7"},{"code":"2236-1","name":"Housing PL MIL 7 - 04-DU00"},{"code":"2236-2","name":"PL Housing MIL 10 - 04-DU02"},{"code":"2236-3","name":"Housing HD MIL 7 - 04-DUC5"},{"code":"2236-4","name":"Housing HD MIL 10 - 04-DUC7"},{"code":"2246-1","name":"Gehauseboden P06-E-000073_V02 BLACK"},{"code":"2249-1","name":"Flange raw part axial 04-E526"},{"code":"2249-2","name":"Flange raw part axial 04-E527"},{"code":"2249-3","name":"Flange raw part axial 04-E532"},{"code":"2250-1","name":"Flange raw part cable/plug 04-E522"},{"code":"2250-10","name":"Flange raw part cable/plug 04-E573"},{"code":"2250-2","name":"Flange raw part cable/plug 04-E523"},{"code":"2250-3","name":"Flange raw part cable/plug 04-E534"},{"code":"2250-4","name":"Flange raw part cable/plug 04-E528"},{"code":"2250-5","name":"Flange raw part cable/plug 04-E529"},{"code":"2250-6","name":"Flange raw part cable/plug 04-E535"},{"code":"2250-7","name":"Flange raw part cable/plug 04-E518"},{"code":"2250-8","name":"Flange raw part cable/plug 04-E519"},{"code":"2250-9","name":"Flange raw part cable/plug 04-E533"},{"code":"2251-1","name":"Flange raw part MIL 04-E520"},{"code":"2251-2","name":"Flange raw part MIL 04-E521"},{"code":"2251-3","name":"Flange raw part MIL 04-E524"},{"code":"2251-4","name":"Flange raw part MIL 04-E530"},{"code":"2251-5","name":"Flange raw part MIL 04-E525"},{"code":"2251-6","name":"Flange raw part MIL 04-E531-70142565"},{"code":"233-1","name":"DUAL CASE  TUV-CSE032N010"},{"code":"234-1","name":"SINGLE CASE TUV-  CSE031N009"},{"code":"239-1","name":"MOT CAP J869 SER-CC66599"},{"code":"181-1","name":"SLIDE,SECOND ROLLER MINI-TENSIONKT-R3401-21102-00"},{"code":"2260-1","name":"ENCODER HOUSING-CA30516-001"},{"code":"148G","name":"Base.Housing W06 EN 2X1/2NPT - 71145722"},{"code":"1255CMM","name":"Housing G304-71224896"}];
+
+ITEMS=[...BUILTIN_ITEMS,...loadCustomItems()];
+
+let stockData=JSON.parse(localStorage.getItem("stockData")||'{"preTreatment":{},"powderCoating":{}}');
+let transactions=JSON.parse(localStorage.getItem("stockTransactions")||"[]");
+let completed=JSON.parse(localStorage.getItem("completedStock")||"[]");
 let currentUser=null;
-let ITEMS=[{"code":"111","name":"CHAMBER ASSY AIR SHIFT-A3261C289"},{"code":"1365","name":"ADAPTER H309"},{"code":"112","name":"FRONT PANEL-DF-11010-01"},{"code":"2103","name":"BOTTOM CASTING"},{"code":"113","name":"REAR PANEL-DF-11010-02"},{"code":"115","name":"Cover D01 L-Gr DA M120 50094182"},{"code":"116","name":"COVER D307 L GR-71224754"},{"code":"117","name":"COVER D308 L-GR-M115-71224759"},{"code":"118","name":"COVER D309 non Ex L-GR M122-71224762"},{"code":"119","name":"COVER D320 L-GR AL -71247179"},{"code":"120","name":"ENCLOSURE  NECK -PIG02-71118503"},{"code":"121","name":"Enclosure Neck Pi PMAG W/P L-Bl DA 50101667"},{"code":"122","name":"Enclosure Neck Pmagh L-Bl DA Ai-50094265"},{"code":"123","name":"Enclosure Neck-Pi 2x DA 50099285"},{"code":"124","name":"HALF HOUSING SHELL PM DN 32 DA L-BL -50053429"},{"code":"125","name":"HALF HOUSING SHELL PMF DN 15 DA L.BL - 50079992"},{"code":"126","name":"Half Housing Shell PMF DN 25 DA - 50053427"},{"code":"127","name":"Half Housing Shell PMF DN 40DA -L-Bl-50053431"},{"code":"128","name":"Half Housing Shell PMF DN 50 DA-50053433"},{"code":"129","name":"Half Housing Shell PMF DN125 DA 50058764"},{"code":"130","name":"Half Housing Shell PMF DN150 DA L-Bl  50058766"},{"code":"131","name":"Housing G06 L-Bl 50100330"},{"code":"132","name":"Housing G06 L-BL 50100331"},{"code":"133","name":"Housing G09 L-Bl 2xM20x1.5-50102947"},{"code":"134","name":"Housing PmagD DN 100 L-BL-71073382"},{"code":"135","name":"Housing -PmagD DN 25 L-BL-71073366"},{"code":"136","name":"Housing PmagD DN 40 L-BL-71073369"},{"code":"137","name":"Housing PmagD DN 50 L- Bl-71073373"},{"code":"138","name":"Housing PmagD DN 65 L-BL-71073376"},{"code":"139","name":"Housing PmagD DN 80 L-Bl-71073379"},{"code":"140","name":"Mounting Part G03 Universal Blue -50094754"},{"code":"141","name":"PCB Fastening Bracket with Milling DA 71440980"},{"code":"142","name":"RETAINING  RING MACHINED M120 DA-50094740"},{"code":"143","name":"Base  Housing W08 Alu 1/2  NPT -71080146"},{"code":"144","name":"Base W06 EN M24x1,5 2xM20x1,5 blue-71122459"},{"code":"145","name":"Base W06 EN M24x1,5 / 1/2NPT-71098498"},{"code":"146","name":"Base W06 EN M24x1,5-M20x1,5 RAL5012-71098497"},{"code":"147","name":"Base Housing W08 Alu/ Metric-71079256 (W)"},{"code":"148","name":"Base W06 EN closed 2x1/2NPT bl - 71122463"},{"code":"149","name":"Base W06 EN closed 2xM20x1,5 blue- 71122462"},{"code":"150","name":"Cover Connection W06 EN Display-71107286"},{"code":"151","name":"Cover Connection Head W06 EN Flat -71096356, Lid low"},{"code":"152","name":"Cover Housing Display I Finished - 71079253"},{"code":"153","name":"Cover Connection Head W06 EN High-71096358"},{"code":"154","name":"COVER HOUSING W08ALU / DISPLAY II -71079288"},{"code":"155","name":"CENTER  SCREEN HOLDING CLAMP-A0722030100000"},{"code":"156","name":"CASTING FOR COLORS 90 DEGREE(B00000685)"},{"code":"159","name":"SYNERGY 10 DEGREE CONNTECTOR (B00001806)"},{"code":"160","name":"SYNERGY 90 DEGREE CONNECTOR (B00001807)"},{"code":"161","name":"CASTING FOR COLORS  99 DEGREE-B00000686"},{"code":"162","name":"VFC-097 CONVERTER,BLIND CAP,CASTING - 10-022-1035836"},{"code":"163","name":"VFC-097 CONVERTER,MIDDLE HOUSING,CASTING - 10-068-1027585"},{"code":"164","name":"SMARTPro,WINDOW CAP,ALUMINIUM LM6,DRG.NO.- F4C2012623"},{"code":"165","name":"BOLTS"},{"code":"166","name":"CAP 35"},{"code":"167","name":"COMP NO 13 END CAP"},{"code":"168","name":"Component 09-Joint  60"},{"code":"169","name":"Component 10 - Cap 60"},{"code":"170","name":"Component 13"},{"code":"171","name":"Mid Cap Component 14"},{"code":"172","name":"RAY S BUILD IN RING WHITE / BLACK-20-0033-1"},{"code":"173","name":"RAYS S FRONT RING WHITE / BLACK-20-0034-1"},{"code":"174","name":"RAY S HEAT SINK  WHITE / BLACK-20-0032-1"},{"code":"175","name":"Bracket  Step Bar FB-R6221-21160-00"},{"code":"176","name":"BRACKET STEP  BAR-R6221-21112-0A"},{"code":"177","name":"CASTING , COUPLING,TIN PULLEY SHAFT-MR2202-12040"},{"code":"178","name":"CASTING ,COUPLING  TIN PULLEY SHAFT-MR2202-12050"},{"code":"179","name":"CASTING BRACKET DOFFING BAR-MR6103-02061"},{"code":"180","name":"CASTING COVER PEDESTAL SIDE-R2201 - 05051"},{"code":"181","name":"CASTING SLIDE -2ND RLR MINI TENS-MK3401-21180"},{"code":"182","name":"CASTING -SLIDE BACK ROLLER S2-MK3401-31011"},{"code":"183","name":"CASTING SLIDE SECOND ROLLER-MK3401-21011"},{"code":"184","name":"CASTING, BRACKET RING PLATE 70G-MR2511-02021"},{"code":"185","name":"Casting, Stand Bot Rol Compact MA340111050-00"},{"code":"186","name":"CASTING,BRACKET BALLOON CONTR RING-MR2522-01022"},{"code":"187","name":"CASTING,BRACKET RING PLATE 75G-MR2511-02011"},{"code":"188","name":"COLLAR JOCKEY BRACKET-R2203-21020-00"},{"code":"189","name":"Holder Roller Stand-R3402-01021-0A"},{"code":"190","name":"STAND BOTTOM ROLLER-MR3401-11310"},{"code":"194","name":"HEAT SINK BOOM M17 WHITE / BLACK-20-0022-1"},{"code":"195","name":"BOOM M 18 BUILD IN RING WHITE / BLACK-20-0023-1"},{"code":"196","name":"NOVA MINI BUILD IN FRAME WHITE / BLACK-20-0044-1"},{"code":"197","name":"COVER PALTE NOVA MINI 5 WHITE / BLACK-20-0045-1"},{"code":"198","name":"DEEP RECESS  HOUSING -100MM (9W)"},{"code":"199","name":"BOOM M -18 FRAME WHITE / BLACK -20-0024-1"},{"code":"211","name":"BRUEHKOPFGEHAEUSE-462462"},{"code":"212","name":"DOMCVX 1 X 6 RAHMEN UNTEN DOMINO CURVE XX 6X6 GUSS-801626"},{"code":"213","name":"Domcva x06 Rahm.o. Guss Domino 106 Aufbau- 801623"},{"code":"214","name":"FUBLAGERKERN LIFT 25-316-000-1-00096 -107839"},{"code":"215","name":"Fublagermantel Lift 25-106715,316-000-1-00050  (AS CAST Kopflagermantel Lift 25, 316-000-1-00001)"},{"code":"216","name":"Fublagermantel Lift 25-107902,316-000-1-00097 (AS CAST Kopflagermantel Lift 25, 316-000-1-00001)"},{"code":"217","name":"KUPPLUNGSSCHUH-2.1.28-02.003ind"},{"code":"218","name":"VENTILKORPER PR2-130301000"},{"code":"219","name":"VENTILKORPER  RP2 -130 3090 000"},{"code":"220","name":"WINKELADAPTER HLT /48 -204-000-1-00030"},{"code":"221","name":"END PLATE -18-110-01"},{"code":"222","name":"END PLATE-13-110-01"},{"code":"223","name":"CAPACITOR CRADLE 0  SEA4H-ADVC2--1037"},{"code":"224","name":"Bearing"},{"code":"225","name":"Bushing 3.0"},{"code":"226","name":"Bushing 3.7"},{"code":"227","name":"SPACER   ALUMINIUM A380-CT6-010"},{"code":"228","name":"Wobble Plate"},{"code":"229","name":"WOBBLE PLATE ASSEMBLY HF WITH 3.7DRG BUSHING -"},{"code":"230","name":"WOBBLE PLATE ASSEMBLY WITH  3 DGR BUSHING-CT6-019"},{"code":"231","name":"JOUE 52837/01 MOD ALPAX AS 7G OU 7 GY 30 OU 33"},{"code":"232","name":"JOUE 52837/02 MOD ALPAX AS 7G OU 7GY30 OU 33"},{"code":"233","name":"CASE -CSE032N008"},{"code":"234","name":"CASE-CSE031N007"},{"code":"235","name":"COVER -CVR014N001"},{"code":"236","name":"COVER -CVR015N001"},{"code":"239","name":"MOT CAP J869 SER-C83056-001"},{"code":"240","name":"CAST COVER PRESSURE  XDUCER-CB58298-002"},{"code":"241","name":"MOUNTING STRAP-685405700V"},{"code":"242","name":"SEGMENTED  STRAP-001-6854019V01"},{"code":"243","name":"SEGMENTED STRAP-002-6854019V02"},{"code":"244","name":"Strap (DIECAST)-698903100V"},{"code":"245","name":"Washer Bar-697012200V"},{"code":"246","name":"MEC ABB STABILISIERUNGSTEG  VI .0 0716436"},{"code":"247","name":"Capsule Col Support-28225265"},{"code":"248","name":"Capsule, COL  SPT -28208380"},{"code":"249","name":"COVER  THREADED DUST-38011395"},{"code":"250","name":"NUT  ADJUSTER PLUG LOCK-38011434"},{"code":"251","name":"PLUG  ADJUSTER-38011394"},{"code":"252","name":"G  HSG, MAX- BOX BASE-MF00-A370-001A"},{"code":"253","name":"G--CAMERA HOUSING, LOWER, MF00-A360-003A"},{"code":"254","name":"G-CAMERA HOUSING, UPPER IME-MF00-A360-025B"},{"code":"255","name":"G-CAMERA LOCKING RING, IME-MF00-A360 MF00-A360-031A"},{"code":"256","name":"G-COVER, THERMAL-MF00-A370-157A"},{"code":"257","name":"G-HSG, LENS MOUNT-MF00-A370-003A"},{"code":"258","name":"G-I/O END CAP , MAX-BOX-MF-A370-005B"},{"code":"259","name":"G-MAX-BOX LID HGS-MF00-A370-002A"},{"code":"260","name":"CAP MP6-103293 - VP DEC-01 F"},{"code":"261","name":"HOUSING MP6-103249- VP GEH 01 F"},{"code":"262","name":"Piston MP6 -103301 -VP VER 01 F"},{"code":"263","name":"PLATE MP6 -103317 - VP PLA 01 F"},{"code":"264","name":"OKT P 2222 W85 MERANO BEFESTIGUNGSRING M  NOCKEN"},{"code":"265","name":"Base Plate 5387 -A21393-1"},{"code":"266","name":"End cover A21081"},{"code":"267","name":"End Cover A21084"},{"code":"268","name":"End cover A21598"},{"code":"269","name":"End cover A21699"},{"code":"270","name":"End cover A21726"},{"code":"271","name":"Frame Glass A00025"},{"code":"272","name":"Glass Frame  Glass Frame XP201-DC.AL(MOD)-A00002-1"},{"code":"273","name":"TOP COMPONENT  TOP COVER 5387 -A31201-1"},{"code":"274","name":"ANGLE -AGS002836-01"},{"code":"275","name":"HMI CLAMPING PLATE-ADVC2-1032"},{"code":"276","name":"CLAMPLING RING -AGS000781-01"},{"code":"277","name":"CONTACT-AGSH31305-01"},{"code":"278","name":"Corona Shild-AGSH31115-01"},{"code":"279","name":"ELECTRODE  ABOVE-AGS001914-01"},{"code":"280","name":"ELECTRODE BEHIND -AGSC26099-01"},{"code":"281","name":"ELECTRODE GK- AL -AGSC52749-01"},{"code":"282","name":"ELECTRODE-AGSC29984-01"},{"code":"284","name":"Endkappe-AGS660296-01"},{"code":"285","name":"Flange -AGSC51280-01"},{"code":"286","name":"Flange-AGS600309-01"},{"code":"287","name":"Flange-AGSC20515-01"},{"code":"288","name":"Flange-AGSC23194-01"},{"code":"289","name":"FLANGE-AGSC25299-01"},{"code":"290","name":"Heat Sink Above-AGSH31124-02"},{"code":"291","name":"Heat Sink Below-AGSH31127-02"},{"code":"292","name":"HEAT SINK -DRC000020-01"},{"code":"293","name":"RING -AGS662945-01"},{"code":"294","name":"Ring for Bushing-AGSC24698-01"},{"code":"295","name":"SHIELD (ABSCHIMUNG)AGSC00391-01"},{"code":"296","name":"SHIELD-AGSC00390-01"},{"code":"297","name":"Clamping Ring-CIB42708934002"},{"code":"298","name":"GUIDE -CIB42710317001"},{"code":"299","name":"Pressure Ring -CIB42706123-002"},{"code":"1100","name":"NOVA MINI HEAT SINK-10(VER2)WHITE / BLACK-20-0043-1"},{"code":"1101","name":"M Ring Nova Mini 5-WHITE / BLACK-20-0042-1"},{"code":"1102","name":"RAY M FRONT RING FOR ZAGA WHITE / BLACK-20-0025-1"},{"code":"1103","name":"Ray M Semi Recessed  Frame 5 - 20-0036-1"},{"code":"1104","name":"Brake Housing Casting-G4X2Encoder Motor-CA31171-001"},{"code":"1105","name":"Brake Hsg M/C-CA31173-001"},{"code":"1106","name":"COOLING  COVER   CASTING -C08876-001"},{"code":"1107","name":"Cover Casting -B47553-001"},{"code":"1108","name":"ELECTRONIC HSG CASTING C08874-001"},{"code":"1109","name":"Encoder Housing Casting G4x2  -CA31175-001"},{"code":"1110","name":"Encoder Hsg Casting-CA34079-001"},{"code":"1111","name":"FRONT FLANGE CAST -B47545-001"},{"code":"1112","name":"Front Flange Casting G4x3-CA34047-001"},{"code":"1113","name":"FRONT FLANGE CASTING-CA34047-002"},{"code":"1114","name":"Resolver Housing  Casting-B47825-001"},{"code":"1115","name":"Resolver Hsg Cast-B47550-001"},{"code":"1116","name":"Bracket Hanger M&M W201-28166463"},{"code":"1117","name":"Capsule Col Support BRA FIAT 310 COL-28189968"},{"code":"1118","name":"Capsule STRG COL LTH GM SII-28310777"},{"code":"1119","name":"Capsule STRG COL RH GM SII-28314014"},{"code":"1120","name":"REWORK OF HOUSING  (Rework Charges for Pump Houisng"},{"code":"1121","name":"CUSTOMER TRAY UNIVERSAL ADVC2-1268"},{"code":"1122","name":"Fixing-AGSH30486-01"},{"code":"1123","name":"HEAT  SINK DRC007216-03"},{"code":"1124","name":"HEAT SINK  -DRC007341-01"},{"code":"1130","name":"PCB HOLDER-K2235519(V)"},{"code":"1131","name":"BODY DIE CAST RECEIVER MACH-305420-76169990"},{"code":"1134","name":"Housing G07 L-Bl DA 71078212"},{"code":"1135","name":"PCB Fastening Bracket PW7X DA 71078204"},{"code":"1136","name":"COVER D41 L GR AL M 77 -71103499"},{"code":"1137","name":"Bracket Upper Guide-2503-01011"},{"code":"1138","name":"CASTING -BKT SEPERATOR BAR END-MA255413011-00 (14MM)"},{"code":"1139","name":"Bracket Separator Bar Casting-MA255411021-00 (18MM)"},{"code":"1141","name":"Capsule Steering Column Support-26119791"},{"code":"1142","name":"Capsule, Strg Column Support-26060424"},{"code":"1143","name":"Cover Threaded Dust U202 Gear -38005482"},{"code":"1144","name":"HOUSING STRG COLUMN (STD) -260 95661"},{"code":"1145","name":"PLUG  ADJUSTER  U202 -38005483"},{"code":"1146","name":"Plug Adjuster TATA X1 GEAR-38004332"},{"code":"1147","name":"DEEP RECESS  HOUSING -110MM (18W)-20-0205-1"},{"code":"1149","name":"Cover Finishing-3266-C-0032"},{"code":"1150","name":"SAMPLE CASTING"},{"code":"1151","name":"COMPONENT 22"},{"code":"1152","name":"COMPONENT 23 K-023"},{"code":"1153","name":"COMPONENT 31 K-031"},{"code":"1154","name":"GEHOUSE C08874-001"},{"code":"1155","name":"JOINT 35"},{"code":"1156","name":"Base housing W-06 EN M24X1.5  2X1/2 NPT   bl-71122461"},{"code":"1157","name":"Thread ring M120x2.0 To D326 mach Al DA-71326455"},{"code":"1158","name":"Thread ring M120x2.0 To D327 mach Al  DA-71326453"},{"code":"1159","name":"Neck piece f.H338 300 Pmass cast Al DA-71330321"},{"code":"1160","name":"Neck piece f.H339 300 Pmass mach Al DA-71330324"},{"code":"1161","name":"Holder M120x2 G306 Term. Comp.mach Al DA-71326474"},{"code":"1162","name":"Holder M120x2 G306 elect. Comp.mach Al DA-71326476"},{"code":"1163","name":"Adapter H340 100Pmass l-bl -71352402"},{"code":"1164","name":"SCREEN HOLDER 22 -B050188010000"},{"code":"1165","name":"Build-in ring triangle springs-13"},{"code":"1166","name":"Build-in ring-MDL4x-13 - 20-0385-1"},{"code":"1167","name":"Front-MDL-4x-13-Medium - 20-0354-1"},{"code":"1168","name":"Front-MDL-4x-13-narrow - 20-0353-1"},{"code":"1169","name":"Front-MDL-4x-13-wide - 20-0355"},{"code":"1170","name":"Gimbal joint-MDL4x-13 Downlight"},{"code":"1171","name":"Joint-MDL4x-13 - 20-0383-1"},{"code":"1172","name":"Lamp housing MDL4x-13 - 20-0352-1"},{"code":"1173","name":"Pendant joint-MDL4x-13 - 20-0384-0"},{"code":"1174","name":"Rotation-ring-MDL4x-12"},{"code":"1175","name":"Tilt joint-MDL4x-13 - 20-0382-1"},{"code":"1176","name":"S Spot Arm MDL7x-13 - 20-0308-1"},{"code":"1177","name":"Build-in ring-13c - 20-0381-1"},{"code":"1178","name":"Canopy-13 - 20-0528-1"},{"code":"1179","name":"Joint-MDL7x-13 - 20-0283-1"},{"code":"1180","name":"S Sopt Lamp housing S-10 - 20-0307-1"},{"code":"1181","name":"Pendant joint MDL7x-13 - 20-0379-0"},{"code":"1182","name":"Tilt joint MDL7x-13c - 20-0380-1"},{"code":"1183","name":"Top plate UDH-9"},{"code":"1184","name":"UDH-bracket-9"},{"code":"1185","name":"RAY S Trackspot Driver Housing Black 20-0094-2 - FSL-P-SYS(70-32)-120-02_01"},{"code":"1186","name":"Front-MDL7x-13 Medium - 20-0387"},{"code":"1187","name":"Front-MDL7x-13 Narrow - 20-0386-1"},{"code":"1188","name":"Front-MDL7x-13 Wide-20-0388-1"},{"code":"1189","name":"Lamp housing MDL7x-13 - 20-0389"},{"code":"1190","name":"RAY S Trackspot Heatsink White / Black 20-0011-1 - FSL-P-SYS(70-32)-120-01_01"},{"code":"1191","name":"FRONT RING-F-32 - FSL-P-SYS(70-32)-120-01_02"},{"code":"1192","name":"RAY ARM Handle Black 20-0055-2 - FSL-P-SYS(70-32)-120-05-01"},{"code":"1193","name":"RAY ARM Cap Black 20-0056-2 - FSL-P-SYS(70-32)-120-05_02"},{"code":"1194","name":"RAY ARM Cover Black 20-0057-2 - FSL-P-SYS(70-32)-120-05_03"},{"code":"1195","name":"50MM CAP 4 WAY - T220801040000"},{"code":"1196","name":"50MM CAP 2 WAY - T220801020000"},{"code":"1197","name":"50MM END CAP - T220801050000"},{"code":"1198","name":"50MM CAP 3 WAY - T220801030000"},{"code":"1199","name":"XTRA M-DL OUTER BODY - 20-0775-1"},{"code":"1200","name":"Half House Shell PMF DN 65 DA L-bl-50053438"},{"code":"1201","name":"Half Hous.Shell PMF DN 80 DA L-Bl-50053440"},{"code":"1202","name":"Half House Shell PMF DN 100 DA L-bl-50053442"},{"code":"1203","name":"Holder F .Connector PL3 MID1-71356130"},{"code":"1204","name":"BASE HOUSING W06 EN 1/2NPT / 2xM20x1.5-71358957"},{"code":"1205","name":"Base W06 EN 1/2NPT-M20x1,5 RAL5012-71358941"},{"code":"1206","name":"Base W06 EN 1/2NPT / 2x 1/2NPT-71358958"},{"code":"1207","name":"Base W06 EN 1/2NPT / 1/2NPT RAL5012-71358954"},{"code":"1207G","name":"Base W06 EN 1/2NPT-1/2NPT RAL7035-71601535"},{"code":"1208","name":"Universal driver housing-9"},{"code":"1209","name":"Boom S Rotating Ring-FSL-P-BOOM-S-02-02 - 20-0255-1"},{"code":"1210","name":"Boom S Heat Sink-FSL-P-BOOM-S-01-01 - 20-0253-1"},{"code":"1211","name":"Boom S Build in Ring-FSL-P-BOOM-S-02-01 - 20-0254-1"},{"code":"1212","name":"50MM Flat trim 2MM end cap-T221501010000"},{"code":"1213","name":"FRONT RING S-10 - 20-0284-1"},{"code":"1214","name":"Cover Housing W06 US flat-71309087"},{"code":"1215","name":"Cover Housing W06 US display-71307946"},{"code":"1216","name":"Base housing W06 US 1/2NPT /1/-71310165"},{"code":"1217","name":"Base housing W06 US 1/2NPT /3/-71310169"},{"code":"1218","name":"Base housing W06 US 1/2NPT / M2-71310171"},{"code":"1219","name":"Capsule, strg column support-38252549"},{"code":"1220","name":"Housing base W22 / TA 20AB-307591"},{"code":"1221","name":"Housing Cover w22/TA20AB RAL7035 - 71395511"},{"code":"1222","name":"TA 20L _LID_3066-307638"},{"code":"1223","name":"TA 20L_BASE_PART_3066-307641"},{"code":"1224","name":"circular downlight recessed body-20-0472-1"},{"code":"1225","name":"C-Dl SM body V3-15"},{"code":"1226","name":"SDL Reccessed body V2-sharp3"},{"code":"1227","name":"SDL Reccessed body SMB V4"},{"code":"1228","name":"Floating screen connecter clamp"},{"code":"1229","name":"screen end cap 15MM  - R810101010000"},{"code":"1230","name":"Side screen holding clamp - W143103010000"},{"code":"1231","name":"Screen cap 120D for 18MM screen-Mail-mazak5"},{"code":"1232","name":"STAND BOTTOM ROLLER-R3401-11321-00"},{"code":"1233","name":"Base Housing W22 M24x1.5-NPT1/2 - 71395523"},{"code":"1234","name":"Base Housing W22 NPT1/2-M20x1.5 - 71395524"},{"code":"1235","name":"Housing bottom W22 NPT1/2-NPT1/2 - 71395521"},{"code":"1236","name":"Cover D330 M115 W/O SCREEN - 21008936-71397112"},{"code":"1237","name":"Holder M120x2 G306 Term. Comp.mach Al DA-71377303"},{"code":"1238","name":"Cover-_display_Exd_1408 - 140810004-71260416"},{"code":"1239","name":"Cover-_display_std_1408 - 140810091-71260414"},{"code":"1240","name":"Housing_1408 - 140810002"},{"code":"1241","name":"Circuit.carr.elect - 211009782 N-Exd"},{"code":"1242","name":"Housing G331 n-Ex -71394934"},{"code":"1243","name":"Adapter H318 300Pmass L-bI Al Exd DA - 71240474"},{"code":"1244","name":"Adapter H319 300Pmass L-bI Al DA - 71240477"},{"code":"1245","name":"Adapter H326 300PmagP <300 L-bI Al DA - 71240492"},{"code":"1246","name":"Housing G327-71222453"},{"code":"1247","name":"Housing cover flat W24 - 71400800"},{"code":"1248","name":"Base Housing W24 - 71400801"},{"code":"1249","name":"JIONT LMS -4X15-a-20-0499-0"},{"code":"1250","name":"JIONT -LMS-17-20-0500-0"},{"code":"1251","name":"5081-BUILD IN FRAME  ER - 20-0584"},{"code":"1252","name":"TOP TRACK COVER -17-20-0502-0"},{"code":"1253","name":"TOP TRACK  CONNECTOR  17-20-0501-0"},{"code":"1254","name":"CIRCUIT CARR ELECT EXDE"},{"code":"1255","name":"Housing G304-71224896"},{"code":"1256","name":"Base W06 EN M24x1,5 / G1/2\" - 71098499"},{"code":"1257","name":"Adapter H324 300PmagH L-bI Al DA - 71240486"},{"code":"1258","name":"END SCREEN HOLDER 8,  12, 18 MM"},{"code":"1259","name":"SF CENTER SCREEN HOLDER COUNTER 8, 12, 18 MM"},{"code":"1260","name":"40X40 2 WAY CONNECTOR"},{"code":"1261","name":"40X40 3 WAY CONNECTOR"},{"code":"1262","name":"40X40 2 WAY 10 DEGREE CONNECTOR LHS"},{"code":"1263","name":"40X40 2 WAY 10 DEGREE CONNECTOR RHS"},{"code":"1264","name":"40X40 WING CONNECTOR"},{"code":"1265","name":"40X40 FILLER"},{"code":"1266","name":"40X40  SLIDER NUT"},{"code":"1267","name":"TOP MIDDLE SUPPORT  DRF-DEV -1369L"},{"code":"1268","name":"TOP SIDE SUPPORT  DRF-DEV-1369K"},{"code":"1269","name":"Base housing W22 M24x1,5-M20x1,5 - 71395516"},{"code":"1270","name":"LOOP LEG CONNECTOR"},{"code":"1271","name":"HEAT SINK-FSL-P-R11TRIO-00-01-05 - 20-0515-1"},{"code":"1272","name":"PISTON  2230 - A - C001Z"},{"code":"1273","name":"BODY CYLINDER 3261-A-C001Z"},{"code":"1274","name":"COVER BLIND PART [ 140810024 ] ENAC 43400 - 71260421"},{"code":"1275","name":"Housing_0215 - 71273428"},{"code":"1276","name":"Circuit carrier for CPU / modem PL300 - 211005119-71225012"},{"code":"1277","name":"Housing_G324-71219750-71366387"},{"code":"1278","name":"Adapter H348 PL3 Pmag WG Al-71451357"},{"code":"1279","name":"Field housing base p. W18/RIA15 RAL5012-71156970"},{"code":"1280","name":"Omini End Cap - 20-0682-0"},{"code":"1281","name":"Front field h.W18/RIA15 RAL7035 ALSI10Mg-71156968"},{"code":"1282","name":"HOUSING-N-SE002"},{"code":"1283","name":"Adapter H305 200P mag-71491846"},{"code":"1284","name":"Adapter H311 200PmassF 4301-71491848"},{"code":"1285","name":"FRONT REFLECTOR RING"},{"code":"1286","name":"LID 20MM"},{"code":"1287","name":"LID 30MM"},{"code":"1288","name":"BOX"},{"code":"1289","name":"Front RIA15 RAL7035 ALSI10Mg(Fe) - 71156946"},{"code":"1290","name":"Housing F12 (MALBURG) / Housing elec.PW77    L-bl PES 2xM20x1,5- 50083673"},{"code":"1291","name":"Holding ring gl-disc D307/D311/D324 AI-71307405"},{"code":"1292","name":"Circuit carr. to Terminalpr.K321 Al mach - 71225015"},{"code":"1293","name":"RMJ Heat Sink - 20-0576-X"},{"code":"1294","name":"RMJ TRIMLESS FRAME - 20-0580-X (V2 RMJ Ring) - 20-0580-1"},{"code":"1295","name":"RMJ BUILD IN FRAME-20-0579-X (RMJ Ring v1) - 20-0579-1"},{"code":"1296","name":"PERD CONICAL DEPRESSION CAP - 20-0639-1"},{"code":"1297","name":"LEG"},{"code":"1298","name":"30X30 POST BOTTOM"},{"code":"1299","name":"30x30 Post Top Cap"},{"code":"1157-1","name":"Thread ring M120x2.0 To D326 mach 71377486"},{"code":"1301","name":"RAY M RECESS HEAT SINK (16 RIBS) - 20-0214-1"},{"code":"1302","name":"FT MECH HOLDER"},{"code":"1303","name":"FT MECH CLAMP"},{"code":"1304","name":"FT 7530 CONNECTOR"},{"code":"1305","name":"Mounting bracket for K303-71485136"},{"code":"1306","name":"FT 6030 Flat oval connector LHS"},{"code":"1307","name":"FT 6030 flat oval connector RHS"},{"code":"1308","name":"IPG4 Array Build in Ring"},{"code":"1309","name":"Block carrier gear-R3631-21032"},{"code":"1310","name":"HYPER WAY END CAP - 20-0722-X"},{"code":"1240M","name":"Housing TMT16X alu M20x1,5 RAL5012-51004143"},{"code":"1240N","name":"Housing TMT16X alu 1/2-14NPT RAL5012-51004144"},{"code":"1240G","name":"Housing TMT16X alu G1/2 RAL5012-51004784"},{"code":"1275M","name":"Housing base part W01 M20x1,5 blue-71273404"},{"code":"1275N","name":"Housing base part W01 1/2 -14NPT blue-71273408"},{"code":"1275G","name":"Housing base part W01 G1/2 blue-71273407"},{"code":"1311","name":"Base W06 EN closed 2xM20 grey-71145721"},{"code":"1312","name":"Nova Large Heat sink - 20-0153-01"},{"code":"1313","name":"Xtra M Flex 1X Frame 20-0144-0-Model"},{"code":"1314","name":"Xtra M Flex 2X Frame 20-0145-0-Model"},{"code":"1315","name":"Xtra M Flex Cover plate 20-0017-0-Model"},{"code":"1316","name":"STAND BOTTOM ROLLER-ER3401-11401-00"},{"code":"1317","name":"Vario Track Driver Housing-20-0016-1"},{"code":"1318","name":"Vario Track Housing Cover-20-0015-1"},{"code":"1319","name":"Vario Track Lamp Housing-20-0137-1"},{"code":"1279G","name":"Field housing base p. W18/RIA15 RAL7035-71157542"},{"code":"1320","name":"Xtra M Flex 3X Frame- 20-0141-0"},{"code":"1321","name":"Razor 2RDB Led Plate - 20-0765-0"},{"code":"1322","name":"Razor Pole Cover - 20-0766-0"},{"code":"1323","name":"Razor Pole Base - 20-0767-0"},{"code":"1324","name":"Razor Housing - 20-0764-0"},{"code":"1325","name":"NOVA MINI HEAT SINK-10(VER2)-20-0087-1"},{"code":"1326","name":"Zona Perdu Round 6X & 7X Housing Recessed - 20-0902-0"},{"code":"1326-1","name":"Zona Perdu Round 6X & 7X Housing Trimless - 20-0903-0"},{"code":"1327","name":"Zona Perdu Round 6X & 7X Frame Trimless - 20-0904-0"},{"code":"1328","name":"Perdu Eye Ball 10mm Cap - 20-0908-1"},{"code":"1329","name":"Perdu Eye Frame Recessed-20-0912-1"},{"code":"1330","name":"Perdu Eye Front Cap-20-0911-1"},{"code":"1331","name":"Perdu Eye Heatsink-20-0910"},{"code":"1332","name":"Perdu Eye Frame Trimless-20-0913"},{"code":"1333","name":"Accessory Rail Connector-Die Cast"},{"code":"1334","name":"Cover - Receiver die casting - 0660788"},{"code":"1335","name":"Cover - B.C Access - 661031"},{"code":"1336","name":"Rotor Cover-20-1067-X"},{"code":"1337","name":"SL- (Solid Wood Leg) Connector"},{"code":"1338","name":"ROTOR BODY-20-1066"},{"code":"1339","name":"Housing Holder - Die Cast"},{"code":"1340","name":"Panto Heatsink-20-1226-X"},{"code":"1341","name":"Panto Hinge Disk-20-1227-X"},{"code":"1342","name":"Panto Hinge-20-1228-X"},{"code":"1343","name":"Panto Hinge Single-20-1229-X"},{"code":"1344","name":"APT Tandem Arm-TD-D300"},{"code":"1345","name":"APT Tandem Leg-TD-D300"},{"code":"1346","name":"MDL Fix Frame Recessed - 20-1254-0"},{"code":"1347","name":"EOS Fix Frame Recessed - 20-1249-0"},{"code":"1348","name":"MDL Fix Frame Trimless - 20-1255-0"},{"code":"1349","name":"EOS Fix Frame Trimless - 20-1250-0"},{"code":"1350","name":"Opti large track spot reflector housing-20-1208-0"},{"code":"1350-1","name":"Opti large track spot Reflector housing-20-1399-0"},{"code":"1351","name":"Rapid Rail Inline Connector"},{"code":"1352","name":"Block Draft Rod - R2103-41020"},{"code":"1353","name":"Opti large track spot rheatsink-20-1207-0"},{"code":"1354","name":"Opti large track spot Arm-20-1209-0"},{"code":"1355","name":"Opti large DL Recessed Mounting Ring-20-1262-0"},{"code":"1356","name":"Opti large DL Heat Sink-20-1261-0"},{"code":"1356-1","name":"Opti large WW+DL Heat Sink-20-1263-0"},{"code":"1357","name":"Rapid Rail 3 way Connector"},{"code":"1358","name":"Rapid Rail 2 way 90° Connector"},{"code":"1359","name":"Rapid Rail 4 way Connector"},{"code":"1360","name":"82mm L Wing Connector"},{"code":"1361","name":"82mm L Slider"},{"code":"1378","name":"HOUSING FOR GDMPC 100"},{"code":"2100","name":"VALVE BODY -CIB42744882005"},{"code":"2101","name":"BOOSTER COVER DIE CASTING-16300-1327"},{"code":"2102","name":"Bottom Casting -12372-492"},{"code":"2103","name":"Bottom Hsg Casting -12372-452"},{"code":"2104","name":"BOTTOM HOUSING 61VH-TGX16230-116"},{"code":"2106","name":"Center Casting Machined-4952-98"},{"code":"2107","name":"Center Casting Painted -2155-277"},{"code":"2108","name":"760 Enclosure Cover,Beacon Die Casting-TGX:16300-1482"},{"code":"2109","name":"EXHAUST RING DIE CASTING -10636-13"},{"code":"2111","name":"DIAPHRAGM RING CASTING-10636-43"},{"code":"2112","name":"DIAPHAGM RING -10342-75"},{"code":"2113","name":"Diaphragm Ring-12372-131"},{"code":"2114","name":"EXHAUST RING-6750-62"},{"code":"2116","name":"HOUSING 61VH-TGX16230-98"},{"code":"2117","name":"760 Enclosure Cover,Beacon Die Casting-TGX:16300-1481"},{"code":"2118","name":"Ring Die Casting -3092-18"},{"code":"2120","name":"Ring Die Cast-6750-88"},{"code":"2121","name":"Base Die Casting-6750-2"},{"code":"2124","name":"Diaphragm Ring Casting-8883-13"},{"code":"2125","name":"SPAN LEVER Casting -16300-365"},{"code":"2126","name":"Top Housing Casting -12372-462"},{"code":"2127","name":"TOP CASTING MACHINED-10342-74 FAMILY"},{"code":"2128","name":"Al. Top Casting -2155-1"},{"code":"2129","name":"Top Housing Casting-6750-433"},{"code":"2133","name":"CLAMP RING -C1B42710297001"},{"code":"2134","name":"Contact Cage-CIB42709223001 (Aloj Lam Contato  A7B91500103712)"},{"code":"2136","name":"PISTON -A7B91502964260-DRWAING C1B42709241001"},{"code":"2137","name":"VALVE BODY -42709233-001"},{"code":"2138","name":"A-V Gehause MID Lackiert-A5E00089898"},{"code":"2140","name":"HOUSING N.V.RAM CASTING - CB09010"},{"code":"2142","name":"FROST  HOUSING GRILLE - P-023700-0092"},{"code":"2143","name":"DIAPH RING -885-12"},{"code":"2144","name":"DOMCVX XX6 KühlkörperDOMINO CURVE XX 6x6-801632"},{"code":"2145","name":"DOMCVXXX9 Kuhlkorper  Domino Curve 9x9 Guss-806528"},{"code":"2146","name":"END DECCEL 890421"},{"code":"2147","name":"SUPPORT -AGSH31051-02"},{"code":"2148","name":"POSITIONING DEVICE WITH  PERMA LOGO -101568"},{"code":"2149","name":"Heat Sink -AGS002448-01"},{"code":"2150","name":"HEAT  SINK BELOW -AGSH36807-01"},{"code":"2151","name":"HEAT SINK ABOVE -AGSH36809-01"},{"code":"2152","name":"Pressure Ring -CIB42706123-001"},{"code":"2154","name":"DIAPHRAGM RING CASTING-12372-89"},{"code":"2155","name":"LENS CLAMP PLATE/DIE CASTING-16300-1013"},{"code":"2156","name":"LENS CLMP PLT, STD BLK, DIE CAST-16300-1297"},{"code":"2160","name":"Domeda 1x9 Rahmen oben Domino Edge- 805490"},{"code":"2161","name":"DOMCVX 1X9 RAHMEN UNTEN DOMINO CURVE 9x9 GUSS-806409"},{"code":"2162","name":"DOMCVA X09 RAHMEN OBEN GUSS DOMINO 806526"},{"code":"2164","name":"FLANGE DIE CASTING -16353-6"},{"code":"2165","name":"GE HOUSE HEAT SINK 899776"},{"code":"2166","name":"GEHOUSE HEAT SINK 899715"},{"code":"2167","name":"GRILL HOUSING P0237000156"},{"code":"2168","name":"GUIDE PLATE-3HT253702010000"},{"code":"2169","name":"KHUL KORPER AKB"},{"code":"2170","name":"LEUCHTENGEHAUSE-891738"},{"code":"2171","name":"LIMIT SWITCH 330017"},{"code":"2172","name":"LIMIT SWITCH 330019"},{"code":"2173","name":"MOTOR CAP A37627-001"},{"code":"2175","name":"RAHMEN  UNTEN 6X6 DOMEDE 6x6-805841"},{"code":"2177","name":"SEITENTEIL LSA/LOA/LPA-894290"},{"code":"2180","name":"DOMCVX X06 RAHM.0. Guss DOMINO 106 Aufbau-805857"},{"code":"2181","name":"DOMEVA 109 RAHMEN UNTEN DOMINO EDGEXX-806814"},{"code":"2182","name":"END PLATE-10-110-01"},{"code":"2184","name":"CONTACT RING FEMALE-10042388"},{"code":"2185","name":"CONTACT RING MALE-10042389"},{"code":"2186","name":"FLANSCHRING-1302160010"},{"code":"2187","name":"CLAMPING SEGMENT-CIB42710254001"},{"code":"2189","name":"SCREW SHIELDING-C1B4274811101"},{"code":"2190","name":"FACHBODENT RAGER-AKBLUP001R"},{"code":"2192","name":"Exhaust Ring Die Casting-10636-44"},{"code":"2194","name":"DIAPH RING -4551-87"},{"code":"2195","name":"WINKELADAPTER HLT/LIFT 25 -316-000-1-00038 -106728"},{"code":"2197","name":"INSERT-AGSH 31199-01"},{"code":"2198","name":"Bearing Double - DRCNO1767 - 01"},{"code":"2199","name":"Winkeltrager, 204 - 000 - 1 - 00203 - 102697"},{"code":"2200","name":"FIX FOR BELLOWS - (SU3-191)"},{"code":"2201","name":"End Cap-A46212-1"},{"code":"2202","name":"Encl. Botm (As cast)-E-201-01-01-02"},{"code":"2203","name":"Yoke Actuator-34-1238-7"},{"code":"2204","name":"Right Entry Guide and Locking prototype-QGH44976"},{"code":"2205","name":"Left Entry Guide and Locking prototype-QGH44977"},{"code":"2206","name":"Halter T - Stuck (With hole)-A628 815 02 14"},{"code":"2207","name":"Halter T - Stuck (With out hole)-A628 815 02 14"},{"code":"2208","name":"Resolver housing casting-CC45785-001"},{"code":"2209","name":"Encoder Adapter casting-CC45790-001"},{"code":"2210","name":"Encoder Adapter casting-CC45795-001"},{"code":"2211","name":"Encoder Adapter casting-CC45810-001"},{"code":"2212","name":"Encoder Adapter casting-CC45816-001"},{"code":"2213","name":"FAN TOP"},{"code":"2214","name":"D12020 DIE CAST DRIVE BOX - AMR053"},{"code":"2215","name":"D12020 DIE CAST DRIVE COVER - AMR054"},{"code":"2216","name":"D12020 DIE CAST REAR FLANGE - 431900224050"},{"code":"2217","name":"Motor Cap, J866 SER, CC83015"},{"code":"2218","name":"Adapter MIL10 rd"},{"code":"2219","name":"Square Flanschadapter DG"},{"code":"2220","name":"FUHRUNGSGEHAUSE-1-600 500"},{"code":"2221","name":"LAGERBOCK AUS-1-994 309/22"},{"code":"2222","name":"FIELD DISTRIBUTOR-51235653F002"},{"code":"2223","name":"PLATTE - C50825"},{"code":"2224","name":"MOTORKAPPE CA92794"},{"code":"2225","name":"LAGERBOCK EIN-2-994 288/22"},{"code":"2226","name":"Die Cast Moter Cover-431900662150"},{"code":"2227","name":"Gehauseboden P06-E-000073_V01"},{"code":"2228","name":"Gehauseboden P08-E-000074_V"},{"code":"2229","name":"Flange raw part - 04-DSK0"},{"code":"2231","name":"PT COMP VT CONTACT-03405292F002"},{"code":"2232","name":"PROFIL SUPPORT-03405702F002"},{"code":"2233","name":"Right Entry Guide-3405707F002"},{"code":"2234","name":"Left Entry Guide-03405708F002"},{"code":"2235","name":"Housing PL IL Raw Part - 04-DTZ4"},{"code":"2236","name":"Housing PL MIL Raw Part - 04-DTZ9"},{"code":"2237","name":"Middle connector-870-4789"},{"code":"2238","name":"Corner Coneector-870-4394"},{"code":"2239","name":"BACK COVER-CC9934"},{"code":"2240","name":"Coperchio Drive DR2020-AMR062"},{"code":"2241","name":"MOOG PLATE-AMR-63"},{"code":"2242","name":"DRIVE BOX - AMR061"},{"code":"2243","name":"DRIVE BOX - AMR068"},{"code":"2244","name":"HEAT SINK CHASSIS DIE CAST MPPT"},{"code":"2245","name":"COVER WIRE ACCESS \nDIECAST MPPT"},{"code":"2246","name":"Gehauseboden P06-E-000073_V02"},{"code":"2247","name":"PLOMBIERKAPPE-C75401"},{"code":"2248","name":"BEARING SHELL ABOVE"},{"code":"2249","name":"Flange raw part axial 04-E556"},{"code":"2250","name":"Flange raw part cable/plug 04-E557"},{"code":"2251","name":"Flange raw part MIL 04-E558"},{"code":"2252","name":"LOW VOLTAGE BOX LARGE - GA0-03-021"},{"code":"2253","name":"COVER LOW VOLTAGE BOX LARGE - GA0-03-022"},{"code":"2254","name":"LOW VOLTAGE BOX  LARGE & COVER LOW VOLTAGE BOX LARGE ASSEMBLY PARTS - GA1-03-001"},{"code":"2255","name":"COVER LOW VOLTAGE BOX LARGE"},{"code":"2256","name":"COVER LOW VOLTAGE BOX LARGE"},{"code":"2257","name":"End plate-16-110-01"},{"code":"2258","name":"LAGERAUFNAHME SIM.LED 8000"},{"code":"2259","name":"BOX - JYT26604"},{"code":"2260","name":"ENCODER HOUSING-CA32018-001"},{"code":"2261","name":"BRAKE HOUSING-CA34263"},{"code":"2262","name":"DRIVE BOX - AMR073"},{"code":"2263","name":"SEAL CAP"},{"code":"2264","name":"CT-SUPPORT-JYT19290"},{"code":"2265","name":"SELECTOR SHAFT-03403357F0"},{"code":"2266","name":"BEARING-03401924F002"},{"code":"2267","name":"Yoke  Housing 26 (Ø 28 mm) - B19-00725"},{"code":"2268","name":"Flangia Fas H115-4319 002 2309"},{"code":"2268-1","name":"Flangia Fas H115-431900223100"},{"code":"2268-2","name":"FLANGIA FAS H115-BUSH"},{"code":"2269","name":"Positioning device with out Perma Logo-101579"},{"code":"2270","name":"YOKE HOUSING 24 (Ø 26 mm)-F15-22627"},{"code":"2271","name":"Gehauseboben P08 V2"},{"code":"1135R","name":"PCB Fastening Bracket PW7X DA 71078204"},{"code":"1137-1","name":"Bracket Upper Guide-R2503-01013-00"},{"code":"116-1","name":"COVER D307 L GR-71224754 (NST)"},{"code":"118-1","name":"COVER D309 L-GR M122-71224761 (NST)"},{"code":"1260-1","name":"40X40 1 WAY CONNECTOR LHS"},{"code":"1260-2","name":"40X40 1 WAY CONNECTOR RHS"},{"code":"1261-1","name":"40X40 3 WAY CONNECTOR WITH PRONGES"},{"code":"1293-1","name":"EOS HEAT SINK WFL (RMJ HEATSINK) -20-0711-2"},{"code":"1293-2","name":"EOS HEATSIN SP (RMJ HEATSINK) - 20-0576-2"},{"code":"1293-3","name":"EOS HEAT SINK MFL+WW (RMJ HEATSINK) - 20-0710-2"},{"code":"134N","name":"Housing PmagD DN 100 L-BL-71458696"},{"code":"135N","name":"Housing -PmagD DN 25 L-BL-71458681"},{"code":"136N","name":"Housing PmagD DN 40 L-BL-71458684"},{"code":"137N","name":"Housing PmagD DN 50 L- Bl-71458685"},{"code":"138N","name":"Housing PmagD DN 65 L-BL-71458690"},{"code":"139N","name":"Housing PmagD DN 80 L-Bl-71458693"},{"code":"155-A","name":"CENTER SCREEN HOLDING CLAMP-A0722030100000"},{"code":"155-B","name":"CENTER SCREEN HOLDING CLAMP-A0722030100000"},{"code":"162-1","name":"SMARTPro,BLIND CAP,ALUMINUM LM6,DRG.NO.- F4C2012625"},{"code":"163-1","name":"SMARTPro,MIDDLE HOUSING,ALUMINIUM LM6,DRG.NO.- 12621"},{"code":"164-1","name":"VFC-097 CONVERTER,WINDOW CAP,CASTING - 10-022-1035826"},{"code":"180-1","name":"COVER -ASSY -PEDESTAL SIDE - MC"},{"code":"180-2","name":"COVER ASSY PEDESTAL SIDE-R2201-03050-00"},{"code":"184-1","name":"BRACKET RING PLATE 70G-R2511-01024-00"},{"code":"184-2","name":"BRACKET RING PLATE 70G-R2511-11043-00"},{"code":"184-3","name":"BRACKET RING PLATE 70G-R2511-21024-00"},{"code":"184-4","name":"BRACKET RING PLATE 70G-R2511-21044-00"},{"code":"187-1","name":"BRACKET RING PLATE 75G-R2511-01013-00"},{"code":"187-2","name":"BRACKET RING PLATE 75G-R2511-11033-00"},{"code":"187-3","name":"BRACKET RING PLATE 75G-R2511-21014-00"},{"code":"187-4","name":"BRACKET RING PLATE 75G-R2511-21034-00"},{"code":"2100-1","name":"Nrv Casting (1s 145kv)PTD4844882005"},{"code":"2102-1","name":"Bottom Casting Machined-12372-112"},{"code":"2103-1","name":"Bottom Casting Machining-12372-158"},{"code":"2103-2","name":"Bottom Housing-14811-3"},{"code":"2106-1","name":"Center Casting Machined-4952-100"},{"code":"2108-1","name":"Cover Standard 760-TGX:16300-479"},{"code":"2109-1","name":"CTR DIAPH RING -10637-10"},{"code":"2109-2","name":"UPPR DIAPH RING-10636-18"},{"code":"2111-1","name":"DIAPH RING MACH-10636-22"},{"code":"2111-2","name":"Bottom Diaph Ring -14032-2"},{"code":"2112-1","name":"DIAPHAGM RING -8377-76"},{"code":"2113-1","name":"Diaphragm Ring-14811-54"},{"code":"2117-1","name":"IND COVER 760-TGX:16300-477"},{"code":"2118-1","name":"INNER RING PAINTED-3565-73"},{"code":"2118-2","name":"LOWER RING BTM LOADER PAINTED-7058-138"},{"code":"2118-3","name":"UPPER RING PAINTED -7058-140"},{"code":"2120-1","name":"Ph39T Ring Mach-6750-90"},{"code":"2121-1","name":"PILOT BASE MACH-6751-2"},{"code":"2121-2","name":"PILOT BASE-12334-409"},{"code":"2124-1","name":"Reduction Ring-10916-2"},{"code":"2124-2","name":"Reduction Ring - 4297-22"},{"code":"2124-3","name":"Reduction Ring -4297-23"},{"code":"2124-4","name":"Reduction Ring -4297-24"},{"code":"2124-5","name":"Reduction Ring -4297-201"},{"code":"2125-1","name":"760 SPAN LEVER ASSEMBLY -A6X30004458"},{"code":"2126-1","name":"Top Casting Machined -12372-465"},{"code":"2127-1","name":"TOP CASTING MACHINED-TGX-10342-276"},{"code":"2127-2","name":"TOP CAST MACH TGX-10342-277"},{"code":"2127-3","name":"TOP CAST MACH TGX-10342-278"},{"code":"2128-1","name":"TOP CSTG-MACH-2155-85"},{"code":"2128-2","name":"Top Housing Updated A6X30013965"},{"code":"2129-1","name":"Top Housing Casting-Painted A6X30005315"},{"code":"2129-2","name":"Top Housing Machined-6754-2"},{"code":"2134-1","name":"Finger Contact Holder -PTD4809223001"},{"code":"2136-1","name":"MOVING CONTACT HOLDER (M/C)72-KV-PTD4809241001"},{"code":"2136-2","name":"Copper Sleeve-4HT 427 09205 (BUSH)"},{"code":"2136-3","name":"Piston PTD 5901828001"},{"code":"2137-1","name":"NRV MACHINED 72 KV-PTD4809233001"},{"code":"2138-1","name":"A-V Gehause MID Lackiert-ASE00090951"},{"code":"2138-2","name":"Av-Geh Lackiert-A5E00742009"},{"code":"2138-3","name":"A-V Gehause MID Lackiert-ASE00090955"},{"code":"2140-1","name":"HOUSING N.V.RAM MODULE-CB84058-001/T"},{"code":"2140-2","name":"HOUSING N.V.RAM MODULE -CB98329-001/T"},{"code":"2154-1","name":"DIAPHRAGM RING -14811-16"},{"code":"2164-1","name":"FLANGE 353  & CASE ASSY-A5E36545238"},{"code":"2189-1","name":"SCREW SHIELDING IU-PTD4848111001"},{"code":"2192-1","name":"CTR DIAPH RING-10637-9"},{"code":"2192-2","name":"CTR DIAPH RING-10636-21"},{"code":"2194-1","name":"DIAPHRAGM RING 8665-12"},{"code":"2194-2","name":"DIAPH RING Machined-7298-4"},{"code":"2194-3","name":"DIAPH RING-10157-2"},{"code":"2194-4","name":"DIAPH RING 8790-2"},{"code":"2202-1","name":"Encl. Botm (Coated)-E-201-01-01-02"},{"code":"2208-1","name":"Resolver housing Finishing-CC45786 - 001"},{"code":"2209-1","name":"Encoder Adapter Finishing-CC45791-001"},{"code":"2210-1","name":"Encoder Adapter Finishing-CC45796-001"},{"code":"2211-1","name":"Encoder Adapter Finishing-CC45812-001"},{"code":"2212-1","name":"Encoder Adapter Finishing-CC45817-001"},{"code":"2214-1","name":"D12020 MACHINE DRIVE BOX - AMR051"},{"code":"2216-1","name":"D12020 MACHINE REAR FLANGE - 431900223730"},{"code":"2217-1","name":"Motor Cap, J866 SER, CC66246-001"},{"code":"2220-1","name":"FUHRUNGSGEHAUSE-AGS600531-01"},{"code":"2220-2","name":"FUHRUNGSGEHAUSE-AGSC00405-01"},{"code":"2221-1","name":"LAGERBOCK AGS6994309-01"},{"code":"2225-1","name":"LAGERBOCK EIN-AGS694288-01"},{"code":"2227-1","name":"Gehauseboden P06-E-000073_V01 BLACK"},{"code":"2227-2","name":"Gehauseboden P06-E-000073_V01 BLUE"},{"code":"2228-1","name":"Gehauseboden P08-E-000074_V BLACK"},{"code":"2228-2","name":"Gehauseboden P08-E-000074_V BLUE"},{"code":"2229-1","name":"Flange 25 - 04-DSK1"},{"code":"2229-2","name":"Flange 38 - 04-DSK2"},{"code":"2229-3","name":"Flange HD - 04-DSK3"},{"code":"2229-4","name":"Flange Ventas - 04-DTZ1"},{"code":"2235-1","name":"HD Housing Cable - 04-DUC1"},{"code":"2235-2","name":"HD Housing Connector - 04-DUC3"},{"code":"2235-3","name":"Housing IL Cable - 04-DU04"},{"code":"2235-4","name":"PL Housing Cable - 04-DTZ5"},{"code":"2235-5","name":"Housing PL + IL Connector - 04-DTZ7"},{"code":"2236-1","name":"Housing PL MIL 7 - 04-DU00"},{"code":"2236-2","name":"PL Housing MIL 10 - 04-DU02"},{"code":"2236-3","name":"Housing HD MIL 7 - 04-DUC5"},{"code":"2236-4","name":"Housing HD MIL 10 - 04-DUC7"},{"code":"2246-1","name":"Gehauseboden P06-E-000073_V02 BLACK"},{"code":"2249-1","name":"Flange raw part axial 04-E526"},{"code":"2249-2","name":"Flange raw part axial 04-E527"},{"code":"2249-3","name":"Flange raw part axial 04-E532"},{"code":"2250-1","name":"Flange raw part cable/plug 04-E522"},{"code":"2250-10","name":"Flange raw part cable/plug 04-E573"},{"code":"2250-2","name":"Flange raw part cable/plug 04-E523"},{"code":"2250-3","name":"Flange raw part cable/plug 04-E534"},{"code":"2250-4","name":"Flange raw part cable/plug 04-E528"},{"code":"2250-5","name":"Flange raw part cable/plug 04-E529"},{"code":"2250-6","name":"Flange raw part cable/plug 04-E535"},{"code":"2250-7","name":"Flange raw part cable/plug 04-E518"},{"code":"2250-8","name":"Flange raw part cable/plug 04-E519"},{"code":"2250-9","name":"Flange raw part cable/plug 04-E533"},{"code":"2251-1","name":"Flange raw part MIL 04-E520"},{"code":"2251-2","name":"Flange raw part MIL 04-E521"},{"code":"2251-3","name":"Flange raw part MIL 04-E524"},{"code":"2251-4","name":"Flange raw part MIL 04-E530"},{"code":"2251-5","name":"Flange raw part MIL 04-E525"},{"code":"2251-6","name":"Flange raw part MIL 04-E531-70142565"},{"code":"233-1","name":"DUAL CASE  TUV-CSE032N010"},{"code":"234-1","name":"SINGLE CASE TUV-  CSE031N009"},{"code":"239-1","name":"MOT CAP J869 SER-CC66599"},{"code":"181-1","name":"SLIDE,SECOND ROLLER MINI-TENSIONKT-R3401-21102-00"},{"code":"2260-1","name":"ENCODER HOUSING-CA30516-001"},{"code":"148G","name":"Base.Housing W06 EN 2X1/2NPT - 71145722"},{"code":"1255CMM","name":"Housing G304-71224896"}];
-let serverItems=[];
-let stockData={preTreatment:{}};
-let transactions=[];
-let completed=[];
 
-function token(){return sessionStorage.getItem("stockToken")||"";}
-function authHeaders(extra={}){return Object.assign({"Content-Type":"application/json","Authorization":"Bearer "+token()},extra);}
-
-async function api(url,options={}){
-  const opts=Object.assign({},options,{headers:authHeaders(options.headers||{})});
-  const r=await fetch(API+url,opts);
-  let data={};
-  try{data=await r.json();}catch(e){}
-  if(!r.ok) throw new Error(data.error||data.message||("Request failed: "+r.status));
-  return data;
+function saveData(){
+  localStorage.setItem("stockData",JSON.stringify(stockData));
+  localStorage.setItem("stockTransactions",JSON.stringify(transactions));
+  localStorage.setItem("completedStock",JSON.stringify(completed));
 }
 
-function mergeItems(){
-  const map=new Map();
-  ITEMS.forEach(x=>map.set(String(x.code).trim(),{code:String(x.code).trim(),name:String(x.name||"")}));
-  serverItems.forEach(x=>map.set(String(x.itemCode||x.code).trim(),{code:String(x.itemCode||x.code).trim(),name:String(x.itemName||x.name||"")}));
-  ITEMS=Array.from(map.values());
-}
-
-async function loadData(){
-  try{
-    const data=await api("/api/data");
-    serverItems=Array.isArray(data.items)?data.items:[];
-    transactions=Array.isArray(data.transactions)?data.transactions:[];
-    completed=Array.isArray(data.completedStock)?data.completedStock:[];
-    stockData.preTreatment={};
-    serverItems.forEach(x=>stockData.preTreatment[String(x.itemCode)]=Number(x.quantity||0));
-    mergeItems();
-    refreshAll();
-  }catch(e){
-    console.error(e);
-    if(/Login required|Invalid or expired/i.test(e.message)) logout();
-    else alert(e.message||"Unable to load stock data.");
-  }
-}
-
-async function login(){
+function login(){
   const username=document.getElementById("username").value;
   const password=document.getElementById("password").value;
   const error=document.getElementById("loginError");
-  try{
-    const response=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
-    const data=await response.json();
-    if(!response.ok){error.textContent=data.error||"Invalid username or password";error.style.display="block";return;}
-    currentUser={username:data.username,name:data.name};
-    sessionStorage.setItem("stockToken",data.token);
-    sessionStorage.setItem("currentUser",JSON.stringify(currentUser));
+  if(USERS[username]&&USERS[username].password===password){
+    currentUser=username;
+    sessionStorage.setItem("currentUser",username);
     document.getElementById("loginPage").style.display="none";
     document.getElementById("app").style.display="block";
-    document.getElementById("loggedUser").textContent=data.name;
-    document.getElementById("topUser").textContent=data.name;
+    document.getElementById("loggedUser").textContent=USERS[username].name;
+    document.getElementById("topUser").textContent=USERS[username].name;
     document.getElementById("preMenu").style.display=username==="pretreatment"?"block":"none";
     document.getElementById("powderMenu").style.display=username==="powdercoating"?"block":"none";
     showPage(username==="pretreatment"?"preDashboard":"powderDashboard");
     error.style.display="none";
-    await loadData();
-  }catch(e){console.error(e);error.textContent="Server connection failed. Please try again.";error.style.display="block";}
+    refreshAll();
+  }else error.style.display="block";
 }
 
 function logout(){
-  sessionStorage.removeItem("stockToken");
-  sessionStorage.removeItem("currentUser");
   currentUser=null;
+  sessionStorage.removeItem("currentUser");
   document.getElementById("app").style.display="none";
   document.getElementById("loginPage").style.display="flex";
   document.getElementById("password").value="";
 }
 
-function showPage(page,btn){
+function showPage(pageId,button){
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-  const el=document.getElementById(page); if(el) el.classList.add("active");
+  const page=document.getElementById(pageId);
+  if(page)page.classList.add("active");
+  const titles={
+    preDashboard:"Pre Treatment Dashboard",addNewItem:"Add New Item Code",addStock:"Add Stock",sendStock:"Send Stock",
+    preAvailable:"Pre Treatment Available Stock",powderDashboard:"Powder Coating Dashboard",
+    receivedStock:"Received Stock",powderAvailable:"Powder Coating Balance Stock",
+    completedStock:"Powder Coating Completed Stock"
+  };
+  document.getElementById("pageTitle").textContent=titles[pageId]||"Dashboard";
   document.querySelectorAll(".menu button").forEach(b=>b.classList.remove("active"));
-  if(btn) btn.classList.add("active");
-  const titles={preDashboard:"Pre Treatment Dashboard",addStock:"Add Stock",sendStock:"Send Stock",preAvailable:"Pre Treatment Available Stock",powderDashboard:"Powder Coating Dashboard",receivedStock:"Received Stock",powderAvailable:"Powder Coating Balance Stock",completedStock:"Powder Coating Completed Stock"};
-  document.getElementById("pageTitle").textContent=titles[page]||"Stock Management";
-  if(window.innerWidth<=750) document.getElementById("sidebar").classList.remove("open");
+  if(button)button.classList.add("active");
+  if(pageId==="powderAvailable") renderPowderStock();
+  if(pageId==="preAvailable") renderPreStock();
+  if(pageId==="receivedStock") renderReceivedStock();
+  if(pageId==="completedStock") renderCompleted();
+  if(window.innerWidth<=750)document.getElementById("sidebar").classList.remove("open");
 }
 
-function getItem(code){return ITEMS.find(x=>String(x.code).trim().toLowerCase()===String(code).trim().toLowerCase())||null;}
-function getPreQuantity(code){return Number(stockData.preTreatment[String(code)]||0);}
-function getPowderReceivedQuantity(code){return transactions.filter(t=>t.type==="SEND_TO_POWDER"&&String(t.itemCode).toLowerCase()===String(code).toLowerCase()).reduce((s,t)=>s+Number(t.quantity||0),0);}
-function getPowderCompletedQuantity(code){return completed.filter(t=>String(t.itemCode).toLowerCase()===String(code).toLowerCase()).reduce((s,t)=>s+Number(t.quantity||0),0);}
-function getPowderBalanceQuantity(code){return Math.max(0,getPowderReceivedQuantity(code)-getPowderCompletedQuantity(code));}
+function getItem(code){return ITEMS.find(item=>item.code===code)}
 
 function populateItemDropdowns(){
-  ["sendItemCode","completeItemCode"].forEach(id=>{
-    const select=document.getElementById(id); if(!select)return;
-    const old=select.value;
-    select.innerHTML='<option value="">Select Item Code</option>';
-    ITEMS.forEach(item=>{const o=document.createElement("option");o.value=item.code;o.textContent=item.code+" - "+item.name;select.appendChild(o);});
-    if(old && ITEMS.some(x=>x.code===old)) select.value=old;
-  });
+  const addList=document.getElementById("addItemSearchList");
+  if(addList){
+    addList.innerHTML="";
+    ITEMS.forEach(item=>{
+      const codeOption=document.createElement("option");
+      codeOption.value=item.code;
+      codeOption.label=item.name;
+      addList.appendChild(codeOption);
+      const nameOption=document.createElement("option");
+      nameOption.value=item.name;
+      nameOption.label=item.code;
+      addList.appendChild(nameOption);
+    });
+  }
+
+  const completeList=document.getElementById("completeItemCodes");
+  if(completeList){
+    completeList.innerHTML="";
+    ITEMS.forEach(item=>{
+      const option=document.createElement("option");
+      option.value=item.code;
+      option.label=item.name;
+      completeList.appendChild(option);
+    });
+  }
+
+  const list=document.getElementById("sendItemCodes");
+  if(list){
+    list.innerHTML="";
+    ITEMS.forEach(item=>{
+      const option=document.createElement("option");
+      option.value=item.code;
+      option.label=item.name;
+      list.appendChild(option);
+    });
+  }
 }
 
 function updateItemName(type){
-  const codeEl=document.getElementById(type==="add"?"addItemCode":type==="send"?"sendItemCode":"completeItemCode");
-  const code=codeEl.value.trim(); const item=getItem(code);
-  const nameEl=document.getElementById(type==="add"?"addItemName":type==="send"?"sendItemName":"completeItemName");
-  if(nameEl) nameEl.value=item?item.name:"";
-  if(type==="send"){const b=document.getElementById("sendBalance");if(b)b.value=item?getPreQuantity(item.code):"";}
-  if(type==="complete"){const b=document.getElementById("completeBalance");if(b)b.value=item?getPowderBalanceQuantity(item.code):"";}
+  const id = type === 'add' ? 'addItemCode' : type === 'send' ? 'sendItemCode' : 'completeItemCode';
+  const nameId = type === 'add' ? 'addItemName' : type === 'send' ? 'sendItemName' : 'completeItemName';
+  const codeEl = document.getElementById(id);
+  const code = codeEl ? codeEl.value.trim() : '';
+  const item = ITEMS.find(x => String(x.code).trim().toLowerCase() === code.toLowerCase());
+  const nameEl = document.getElementById(nameId);
+  if(nameEl) nameEl.value = item ? item.name : '';
+  if(type === 'send') updateSendStockInfo();
+  if(type === 'complete') updateCompleteStockInfo();
 }
 
-function addSearchResults(inputId,resultsId,type){
-  const input=document.getElementById(inputId), box=document.getElementById(resultsId); if(!input||!box)return;
-  const q=input.value.trim().toLowerCase(); box.innerHTML="";
-  if(!q){box.style.display="none";return;}
-  const matches=ITEMS.filter(x=>String(x.code).toLowerCase().includes(q)||String(x.name).toLowerCase().includes(q)).slice(0,30);
-  matches.forEach(item=>{const d=document.createElement("div");d.className="search-result";d.textContent=item.code+" - "+item.name;d.onclick=()=>{selectSearchItem(item,type);};box.appendChild(d);});
-  box.style.display=matches.length?"block":"none";
+function searchAddItem(){
+  const searchEl=document.getElementById("addItemSearch");
+  const codeEl=document.getElementById("addItemCode");
+  const nameEl=document.getElementById("addItemName");
+  const resultsEl=document.getElementById("addItemSearchResults");
+  const term=(searchEl?.value||"").trim().toLowerCase();
+  if(!term){
+    codeEl.value="";
+    nameEl.value="";
+    if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
+    return;
+  }
+  const matches=ITEMS.filter(x=>String(x.code).toLowerCase().includes(term)||String(x.name).toLowerCase().includes(term));
+  const exact=ITEMS.find(x=>String(x.code).trim().toLowerCase()===term || String(x.name).trim().toLowerCase()===term);
+  if(exact){
+    codeEl.value=exact.code;
+    nameEl.value=exact.name;
+  }else{
+    codeEl.value="";
+    nameEl.value="";
+  }
+  if(resultsEl){
+    resultsEl.innerHTML="";
+    if(matches.length){
+      matches.slice(0,50).forEach(item=>{
+        const row=document.createElement("div");
+        row.className="item-search-option";
+        row.innerHTML='<div class="item-search-code">Item Code: '+escapeHtml(String(item.code))+'</div><div class="item-search-name">'+escapeHtml(String(item.name))+'</div>';
+        row.onclick=()=>selectAddItem(item);
+        resultsEl.appendChild(row);
+      });
+      resultsEl.style.display="block";
+    }else{
+      resultsEl.innerHTML='<div class="item-search-option">No matching item found</div>';
+      resultsEl.style.display="block";
+    }
+  }
 }
-function selectSearchItem(item,type){
-  const searchId=type==="add"?"addSearch":type==="send"?"sendSearch":"completeSearch";
-  const codeId=type==="add"?"addItemCode":type==="send"?"sendItemCode":"completeItemCode";
-  document.getElementById(searchId).value=item.code+" - "+item.name;
-  document.getElementById(codeId).value=item.code;
-  document.getElementById(type==="add"?"addItemName":type==="send"?"sendItemName":"completeItemName").value=item.name;
-  if(type==="send")document.getElementById("sendBalance").value=getPreQuantity(item.code);
-  if(type==="complete")document.getElementById("completeBalance").value=getPowderBalanceQuantity(item.code);
-  document.getElementById(type==="add"?"addResults":type==="send"?"sendResults":"completeResults").style.display="none";
-}
-function searchAddItem(){addSearchResults("addSearch","addResults","add");}
-function searchSendItem(){addSearchResults("sendSearch","sendResults","send");}
-function searchCompleteItem(){addSearchResults("completeSearch","completeResults","complete");}
 
-async function addStock(){
-  const code=document.getElementById("addItemCode").value.trim(),qty=Number(document.getElementById("addQty").value),item=getItem(code);
-  if(!item||qty<=0)return alert("Please select an Item Code and enter a valid quantity.");
-  try{await api("/api/stock/add",{method:"POST",body:JSON.stringify({itemCode:item.code,itemName:item.name,quantity:qty,remarks:""})});document.getElementById("addQty").value="";document.getElementById("addSearch").value="";document.getElementById("addItemCode").value="";document.getElementById("addItemName").value="";await loadData();alert(qty+" "+item.name+" added to Pre Treatment stock.");}catch(e){alert(e.message);}
+function escapeHtml(value){
+  return value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
-async function sendStock(){
-  const code=document.getElementById("sendItemCode").value,qty=Number(document.getElementById("sendQty").value),item=getItem(code),remarks=document.getElementById("sendRemarks")?.value||"";
-  if(!item||qty<=0)return alert("Please select an Item Code and enter a valid quantity.");
-  if(qty>getPreQuantity(code))return alert("Insufficient Pre Treatment stock.\nAvailable: "+getPreQuantity(code)+"\nRequested: "+qty);
-  try{await api("/api/stock/send",{method:"POST",body:JSON.stringify({itemCode:item.code,itemName:item.name,quantity:qty,remarks})});document.getElementById("sendQty").value="";if(document.getElementById("sendRemarks"))document.getElementById("sendRemarks").value="";await loadData();alert(qty+" "+item.name+" sent to Powder Coating successfully.");}catch(e){alert(e.message);}
+
+function selectAddItem(item){
+  document.getElementById("addItemSearch").value=item.code+" - "+item.name;
+  document.getElementById("addItemCode").value=item.code;
+  document.getElementById("addItemName").value=item.name;
+  const resultsEl=document.getElementById("addItemSearchResults");
+  if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
 }
-async function completeStock(){
-  const code=document.getElementById("completeItemCode").value,qty=Number(document.getElementById("completeQty").value),item=getItem(code),remarks=document.getElementById("completeRemarks")?.value||"";
-  if(!item||qty<=0)return alert("Please select an Item Code and enter a valid quantity.");
-  const available=getPowderBalanceQuantity(code); if(qty>available)return alert("Insufficient Powder Coating stock.\nAvailable: "+available+"\nRequested: "+qty);
-  try{await api("/api/stock/complete",{method:"POST",body:JSON.stringify({itemCode:item.code,itemName:item.name,quantity:qty,remarks})});document.getElementById("completeQty").value="";if(document.getElementById("completeRemarks"))document.getElementById("completeRemarks").value="";await loadData();alert(qty+" "+item.name+" marked as completed.");}catch(e){alert(e.message);}
+
+function updateSendStockInfo(){
+  const code=document.getElementById("sendItemCode").value.trim();
+  const item=ITEMS.find(x=>String(x.code).trim().toLowerCase()===code.toLowerCase());
+  const nameEl=document.getElementById("sendItemName");
+  const balanceEl=document.getElementById("sendBalanceQty");
+  if(item){
+    nameEl.value=item.name;
+    balanceEl.value=Number(stockData.preTreatment[item.code]||0);
+  }else{
+    nameEl.value="";
+    balanceEl.value="";
+  }
+}
+
+function searchSendItem(){
+  const searchEl=document.getElementById("sendItemSearch");
+  const codeEl=document.getElementById("sendItemCode");
+  const nameEl=document.getElementById("sendItemName");
+  const balanceEl=document.getElementById("sendBalanceQty");
+  const resultsEl=document.getElementById("sendItemSearchResults");
+  const term=(searchEl?.value||"").trim().toLowerCase();
+  if(!term){
+    codeEl.value=""; nameEl.value=""; balanceEl.value="";
+    if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
+    return;
+  }
+  const matches=ITEMS.filter(x=>String(x.code).toLowerCase().includes(term)||String(x.name).toLowerCase().includes(term));
+  const exact=ITEMS.find(x=>String(x.code).trim().toLowerCase()===term || String(x.name).trim().toLowerCase()===term);
+  if(exact){
+    selectSendItem(exact);
+  }else{
+    codeEl.value=""; nameEl.value=""; balanceEl.value="";
+  }
+  if(resultsEl){
+    resultsEl.innerHTML="";
+    if(matches.length){
+      matches.slice(0,50).forEach(item=>{
+        const row=document.createElement("div");
+        row.className="item-search-option";
+        row.innerHTML='<div class="item-search-code">Item Code: '+escapeHtml(String(item.code))+'</div><div class="item-search-name">'+escapeHtml(String(item.name))+'</div>';
+        row.onclick=()=>selectSendItem(item);
+        resultsEl.appendChild(row);
+      });
+      resultsEl.style.display="block";
+    }else{
+      resultsEl.innerHTML='<div class="item-search-option">No matching item found</div>';
+      resultsEl.style.display="block";
+    }
+  }
+}
+
+function selectSendItem(item){
+  document.getElementById("sendItemSearch").value=item.code+" - "+item.name;
+  document.getElementById("sendItemCode").value=item.code;
+  document.getElementById("sendItemName").value=item.name;
+  document.getElementById("sendBalanceQty").value=Number(stockData.preTreatment[item.code]||0);
+  const resultsEl=document.getElementById("sendItemSearchResults");
+  if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
+}
+
+function addNewItem(){
+  const code=document.getElementById("newItemCode").value.trim();
+  const name=document.getElementById("newItemName").value.trim();
+  const msg=document.getElementById("newItemMessage");
+  if(!code||!name){msg.textContent="Please enter both Item Code and Item Name.";msg.style.color="#dc2626";return;}
+  if(ITEMS.some(x=>String(x.code).trim().toLowerCase()===code.toLowerCase())){msg.textContent="This Item Code already exists.";msg.style.color="#dc2626";return;}
+  ITEMS.push({code,name});
+  saveCustomItems();
+  populateItemDropdowns();
+  document.getElementById("newItemCode").value="";
+  document.getElementById("newItemName").value="";
+  document.getElementById("preItems").textContent=ITEMS.length;
+  msg.textContent="New Item Code added successfully.";msg.style.color="#16a34a";
+}
+
+function addStock(){
+  const code=document.getElementById("addItemCode").value;
+  const qty=Number(document.getElementById("addQty").value);
+  if(!code||qty<=0)return alert("Please select an Item Code and enter a valid quantity.");
+  stockData.preTreatment[code]=(Number(stockData.preTreatment[code])||0)+qty;
+  const item=getItem(code),now=new Date();
+  transactions.push({type:"ADD",itemCode:code,itemName:item.name,quantity:qty,user:"Pre Treatment",date:now.toLocaleDateString(),time:now.toLocaleTimeString()});
+  saveData();document.getElementById("addQty").value="";
+  alert(qty+" "+item.name+" added to Pre Treatment stock.");
+  refreshAll();
+}
+
+function sendStock(){
+  const enteredCode=document.getElementById("sendItemCode").value.trim();
+  const item=ITEMS.find(x=>String(x.code).trim().toLowerCase()===enteredCode.toLowerCase());
+  const qty=Number(document.getElementById("sendQty").value);
+  const remarks=document.getElementById("sendRemarks").value.trim();
+  if(!item)return alert("Please enter a valid Item Code.");
+  if(qty<=0)return alert("Please enter a valid Send Quantity.");
+  const code=item.code;
+  const available=Number(stockData.preTreatment[code]||0);
+  if(qty>available)return alert("Insufficient Pre Treatment stock.\nBalance Quantity: "+available+"\nSend Quantity: "+qty);
+  stockData.preTreatment[code]=available-qty;
+  stockData.powderCoating[code]=(Number(stockData.powderCoating[code])||0)+qty;
+  const now=new Date();
+  transactions.push({type:"SEND_TO_POWDER",itemCode:code,itemName:item.name,quantity:qty,remarks:remarks,from:"Pre Treatment",to:"Powder Coating",date:now.toLocaleDateString(),time:now.toLocaleTimeString()});
+  saveData();
+  document.getElementById("sendQty").value="";
+  document.getElementById("sendRemarks").value="";
+  updateSendStockInfo();
+  alert(qty+" "+item.name+" sent to Powder Coating successfully.");
+  refreshAll();
+}
+
+
+function searchCompleteItem(){
+  const searchEl=document.getElementById("completeItemSearch");
+  const codeEl=document.getElementById("completeItemCode");
+  const nameEl=document.getElementById("completeItemName");
+  const balanceEl=document.getElementById("completeBalanceQty");
+  const resultsEl=document.getElementById("completeItemSearchResults");
+  const term=(searchEl?.value||"").trim().toLowerCase();
+  if(!term){
+    codeEl.value=""; nameEl.value=""; balanceEl.value="";
+    if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
+    return;
+  }
+  const matches=ITEMS.filter(x=>String(x.code).toLowerCase().includes(term)||String(x.name).toLowerCase().includes(term));
+  if(resultsEl){
+    resultsEl.innerHTML="";
+    if(matches.length){
+      matches.slice(0,50).forEach(item=>{
+        const row=document.createElement("div");
+        row.className="item-search-option";
+        row.innerHTML='<div class="item-search-code">Item Code: '+escapeHtml(String(item.code))+'</div><div class="item-search-name">'+escapeHtml(String(item.name))+'</div>';
+        row.onclick=()=>selectCompleteItem(item);
+        resultsEl.appendChild(row);
+      });
+      resultsEl.style.display="block";
+    }else{
+      resultsEl.innerHTML='<div class="item-search-option">No matching item found</div>';
+      resultsEl.style.display="block";
+    }
+  }
+  const exact=ITEMS.find(x=>String(x.code).trim().toLowerCase()===term || String(x.name).trim().toLowerCase()===term);
+  if(exact) selectCompleteItem(exact);
+  else { codeEl.value=""; nameEl.value=""; balanceEl.value=""; }
+}
+
+function selectCompleteItem(item){
+  document.getElementById("completeItemSearch").value=item.code+" - "+item.name;
+  document.getElementById("completeItemCode").value=item.code;
+  document.getElementById("completeItemName").value=item.name;
+  document.getElementById("completeBalanceQty").value=getPowderBalanceQuantity(item.code);
+  const resultsEl=document.getElementById("completeItemSearchResults");
+  if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
+}
+
+function updateCompleteStockInfo(){
+  const code=document.getElementById("completeItemCode").value.trim();
+  const item=ITEMS.find(x=>String(x.code).trim().toLowerCase()===code.toLowerCase());
+  const nameEl=document.getElementById("completeItemName");
+  const balanceEl=document.getElementById("completeBalanceQty");
+  if(item){
+    nameEl.value=item.name;
+    balanceEl.value=getPowderBalanceQuantity(item.code);
+  }else{
+    nameEl.value="";
+    balanceEl.value="";
+  }
+}
+
+function completeStock(){
+  const code=document.getElementById("completeItemCode").value.trim();
+  const qty=Number(document.getElementById("completeQty").value);
+  if(!code||qty<=0)return alert("Please select an Item Code and enter a valid quantity.");
+  const available=getPowderBalanceQuantity(code);
+  if(qty>available)return alert("Insufficient Powder Coating stock.\nAvailable: "+available+"\nRequested: "+qty);
+  stockData.powderCoating[code]=available-qty;
+  const item=getItem(code),now=new Date();
+  completed.push({itemCode:code,itemName:item.name,quantity:qty,date:now.toLocaleDateString(),time:now.toLocaleTimeString()});
+  transactions.push({type:"POWDER_COMPLETED",itemCode:code,itemName:item.name,quantity:qty,user:"Powder Coating",date:now.toLocaleDateString(),time:now.toLocaleTimeString()});
+  saveData();document.getElementById("completeQty").value="";
+  alert(qty+" "+item.name+" marked as completed.");
+  refreshAll();
 }
 
 function renderPreStock(){
- const search=(document.getElementById("preSearch")?.value||"").toLowerCase();const tbody=document.getElementById("preStockTable");tbody.innerHTML="";let rows=ITEMS.map(item=>({item,qty:getPreQuantity(item.code)})).filter(x=>x.item.code.toLowerCase().includes(search)||x.item.name.toLowerCase().includes(search)).sort((a,b)=>b.qty-a.qty);rows.forEach((x,i)=>{const r=document.createElement("tr");r.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(x.item.code)+"</td><td>"+escapeHtml(x.item.name)+"</td><td><span class='badge "+(x.qty>0?"badge-green":"badge-yellow")+"'>"+x.qty+"</span></td>";tbody.appendChild(r);});
+  const search=(document.getElementById("preSearch")?.value||"").toLowerCase();
+  const tbody=document.getElementById("preStockTable");tbody.innerHTML="";
+  let sl=1;
+  const filtered=ITEMS.map(item=>({item,qty:Number(stockData.preTreatment[item.code]||0)}))
+    .filter(({item})=>item.code.toLowerCase().includes(search)||item.name.toLowerCase().includes(search))
+    .sort((a,b)=>b.qty-a.qty);
+  filtered.forEach(({item,qty})=>{
+    const row=document.createElement("tr");
+    row.innerHTML="<td>"+sl++ +"</td><td>"+escapeHtml(item.code)+"</td><td>"+escapeHtml(item.name)+"</td><td><span class='badge "+(qty>0?"badge-green":"badge-yellow")+"'>"+qty+"</span></td>";
+    tbody.appendChild(row);
+  });
 }
-function renderReceivedStock(){
- const search=(document.getElementById("receivedSearch")?.value||"").toLowerCase();const tbody=document.getElementById("receivedTable");tbody.innerHTML="";let rows=transactions.filter(t=>t.type==="SEND_TO_POWDER").slice().reverse().filter(r=>String(r.itemCode).toLowerCase().includes(search)||String(r.itemName).toLowerCase().includes(search));rows.forEach((r,i)=>{const d=new Date(r.createdAt||Date.now());const date=r.date||d.toLocaleDateString();const time=r.time||d.toLocaleTimeString();const row=document.createElement("tr");row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(r.itemCode)+"</td><td>"+escapeHtml(r.itemName)+"</td><td>"+Number(r.quantity||0)+"</td><td>"+escapeHtml(date)+"</td><td>"+escapeHtml(time)+"</td>";tbody.appendChild(row);});
-}
-function renderPowderStock(){
- const search=(document.getElementById("powderSearch")?.value||"").toLowerCase();const tbody=document.getElementById("powderStockTable");tbody.innerHTML="";let rows=ITEMS.map(item=>({item,qty:getPowderBalanceQuantity(item.code)})).filter(x=>x.item.code.toLowerCase().includes(search)||x.item.name.toLowerCase().includes(search)).sort((a,b)=>b.qty-a.qty);rows.forEach((x,i)=>{const r=document.createElement("tr");r.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(x.item.code)+"</td><td>"+escapeHtml(x.item.name)+"</td><td><span class='badge "+(x.qty>0?"badge-green":"badge-yellow")+"'>"+x.qty+"</span></td>";tbody.appendChild(r);});
-}
-function renderCompleted(){
- const tbody=document.getElementById("completedTable");tbody.innerHTML="";completed.slice().reverse().forEach((r,i)=>{const d=new Date(r.createdAt||Date.now());const date=r.date||d.toLocaleDateString();const time=r.time||d.toLocaleTimeString();const row=document.createElement("tr");row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(r.itemCode)+"</td><td>"+escapeHtml(r.itemName)+"</td><td>"+Number(r.quantity||0)+"</td><td>"+escapeHtml(date)+"</td><td>"+escapeHtml(time)+"</td>";tbody.appendChild(row);});
-}
-function total(data){return Object.values(data).reduce((s,v)=>s+Number(v||0),0)}
-function refreshDashboard(){
- document.getElementById("preTotal").textContent=total(stockData.preTreatment);document.getElementById("preSent").textContent=transactions.filter(t=>t.type==="SEND_TO_POWDER").reduce((s,t)=>s+Number(t.quantity||0),0);document.getElementById("preItems").textContent=ITEMS.length;document.getElementById("powderReceived").textContent=transactions.filter(t=>t.type==="SEND_TO_POWDER").reduce((s,t)=>s+Number(t.quantity||0),0);document.getElementById("powderAvailable").textContent=ITEMS.reduce((s,x)=>s+getPowderBalanceQuantity(x.code),0);document.getElementById("powderCompleted").textContent=completed.reduce((s,t)=>s+Number(t.quantity||0),0);
-}
-function refreshAll(){populateItemDropdowns();renderPreStock();renderReceivedStock();renderPowderStock();renderCompleted();refreshDashboard();}
-function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open")}
-function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
-function togglePassword(){const input=document.getElementById("password"),button=document.querySelector(".password-toggle");if(!input)return;const show=input.type==="password";input.type=show?"text":"password";if(button){button.textContent=show?"🙈":"👁";button.setAttribute("aria-label",show?"Hide password":"Show password");button.setAttribute("title",show?"Hide password":"Show password");}}
 
-document.addEventListener("DOMContentLoaded",async()=>{
- const saved=sessionStorage.getItem("currentUser");
- if(saved){try{currentUser=JSON.parse(saved);}catch(e){currentUser=null;}}
- if(currentUser&&token()){
-   document.getElementById("loginPage").style.display="none";document.getElementById("app").style.display="block";document.getElementById("loggedUser").textContent=currentUser.name;document.getElementById("topUser").textContent=currentUser.name;document.getElementById("preMenu").style.display=currentUser.username==="pretreatment"?"block":"none";document.getElementById("powderMenu").style.display=currentUser.username==="powdercoating"?"block":"none";showPage(currentUser.username==="pretreatment"?"preDashboard":"powderDashboard");await loadData();
- }else{refreshAll();}
+function renderReceivedStock(){
+  const search=(document.getElementById("receivedSearch")?.value||"").toLowerCase();
+  const tbody=document.getElementById("receivedTable");tbody.innerHTML="";
+  let sl=1;
+  transactions.filter(t=>t.type==="SEND_TO_POWDER").slice().reverse().forEach(r=>{
+    if(!r.itemCode.toLowerCase().includes(search)&&!r.itemName.toLowerCase().includes(search))return;
+    const row=document.createElement("tr");
+    row.innerHTML="<td>"+sl+++"</td><td>"+escapeHtml(r.itemCode)+"</td><td>"+escapeHtml(r.itemName)+"</td><td>"+r.quantity+"</td><td>"+r.date+"</td><td>"+r.time+"</td>";
+    tbody.appendChild(row);
+  });
+}
+
+function getPowderReceivedQuantity(code){
+  return transactions
+    .filter(t=>t && t.type==="SEND_TO_POWDER" && String(t.itemCode)===String(code))
+    .reduce((sum,t)=>sum+(Number(t.quantity)||0),0);
+}
+
+function getPowderCompletedQuantity(code){
+  return completed
+    .filter(t=>t && String(t.itemCode)===String(code))
+    .reduce((sum,t)=>sum+(Number(t.quantity)||0),0);
+}
+
+function getPowderBalanceQuantity(code){
+  // Balance is always Received Stock minus Powder Coating Completed Stock.
+  const received=getPowderReceivedQuantity(code);
+  const done=getPowderCompletedQuantity(code);
+  const hasHistory=transactions.some(t=>t && t.type==="SEND_TO_POWDER") || completed.length>0;
+  if(hasHistory) return Math.max(0, received-done);
+  // Keep compatibility with older saved data.
+  return Math.max(0,Number(stockData.powderCoating?.[code]||0));
+}
+
+function syncPowderBalances(){
+  stockData.powderCoating=stockData.powderCoating||{};
+  ITEMS.forEach(item=>{
+    stockData.powderCoating[item.code]=getPowderBalanceQuantity(item.code);
+  });
+}
+
+function renderPowderStock(){
+  const search=(document.getElementById("powderSearch")?.value||"").trim().toLowerCase();
+  const tbody=document.getElementById("powderStockTable");
+  if(!tbody)return;
+  tbody.innerHTML="";
+
+  const filtered=ITEMS.map(item=>({item:item,qty:getPowderBalanceQuantity(item.code)})
+  ).filter(({item})=>
+    String(item.code).toLowerCase().includes(search)||
+    String(item.name).toLowerCase().includes(search)
+  ).sort((a,b)=>Number(b.qty)-Number(a.qty));
+
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px">No items found</td></tr>';
+    return;
+  }
+
+  filtered.forEach(({item,qty},index)=>{
+    const row=document.createElement("tr");
+    row.innerHTML="<td>"+(index+1)+"</td><td>"+escapeHtml(item.code)+"</td><td>"+escapeHtml(item.name)+"</td><td><span class='badge "+(qty>0?"badge-green":"badge-yellow")+"'>"+qty+"</span></td>";
+    tbody.appendChild(row);
+  });
+}
+
+function renderCompleted(){
+  const tbody=document.getElementById("completedTable");tbody.innerHTML="";
+  completed.slice().reverse().forEach((r,i)=>{
+    const row=document.createElement("tr");
+    row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(r.itemCode)+"</td><td>"+escapeHtml(r.itemName)+"</td><td>"+r.quantity+"</td><td>"+r.date+"</td><td>"+r.time+"</td>";
+    tbody.appendChild(row);
+  });
+}
+
+function total(data){return Object.values(data).reduce((s,v)=>s+Number(v||0),0)}
+
+function refreshDashboard(){
+  document.getElementById("preTotal").textContent=total(stockData.preTreatment);
+  document.getElementById("preSent").textContent=transactions.filter(t=>t.type==="SEND_TO_POWDER").reduce((s,t)=>s+Number(t.quantity),0);
+  document.getElementById("preItems").textContent=ITEMS.length;
+  document.getElementById("powderReceived").textContent=transactions.filter(t=>t.type==="SEND_TO_POWDER").reduce((s,t)=>s+Number(t.quantity),0);
+  const powderBalance=ITEMS.reduce((sum,item)=>sum+getPowderBalanceQuantity(item.code),0);
+  document.getElementById("powderBalanceTotal").textContent=powderBalance;
+  document.getElementById("powderCompleted").textContent=completed.reduce((s,t)=>s+Number(t.quantity),0);
+}
+
+function refreshAll(){
+  syncPowderBalances();
+  saveData();
+  populateItemDropdowns();
+  renderPreStock();renderReceivedStock();renderPowderStock();renderCompleted();refreshDashboard();
+}
+
+function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open")}
+
+function escapeHtml(value){
+  return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  populateItemDropdowns();
+  const saved=sessionStorage.getItem("currentUser");
+  if(saved&&USERS[saved]){
+    currentUser=saved;
+    document.getElementById("loginPage").style.display="none";
+    document.getElementById("app").style.display="block";
+    document.getElementById("loggedUser").textContent=USERS[saved].name;
+    document.getElementById("topUser").textContent=USERS[saved].name;
+    document.getElementById("preMenu").style.display=saved==="pretreatment"?"block":"none";
+    document.getElementById("powderMenu").style.display=saved==="powdercoating"?"block":"none";
+    showPage(saved==="pretreatment"?"preDashboard":"powderDashboard");
+  }
+  refreshAll();
 });
-setInterval(()=>{if(token()&&currentUser)loadData();},5000);
+
+function togglePassword(){
+  const input = document.getElementById("password");
+  const button = document.querySelector(".password-toggle");
+  if(!input) return;
+  const show = input.type === "password";
+  input.type = show ? "text" : "password";
+  if(button){
+    button.textContent = show ? "🙈" : "👁";
+    button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    button.setAttribute("title", show ? "Hide password" : "Show password");
+  }
+}
 </script>
 </body>
 </html>
