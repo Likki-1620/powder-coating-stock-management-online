@@ -2,142 +2,32 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
-Where is create new file 
-
-Perfect. 👍 You are on the server.js screen.
-
-The complete server.js is large because I have included your 723 existing item codes and names so your item master is not lost.
-
-Easiest way on your phone
-Instead of trying to copy 54,000+ characters:
-
-1. Download the complete server.js file here:
-
-Download server.js
-
-2. Go back to your GitHub repository.
-
-3. You don't need the Create new file screen anymore.
-
-Tap:
-
-Add file → Upload files
-
-4. Select the downloaded server.js file.
-
-5. Scroll down and tap:
-
-Commit changes
-
-You should then have:
-
-powder-coating-stock-management
-│
-├── index.html
-└── server.js
-Important
-The server.js I prepared includes:
-
-Your 723 item codes
-
-Your item names
-
-Pre Treatment login
-
-Powder Coating login
-
-Add Stock
-
-Send Stock
-
-Received Stock
-
-Powder Coating Balance
-
-Completed Stock
-
-Shared PostgreSQL database
-
-Protection so two phones use the same stock
-
-Automatic database table creation
-
-I've also checked that the JavaScript syntax is valid.
-
-After server.js is uploaded and committed, tell me server.js done.
-
-Then we'll create Step 5: package.json.
-
-
-server.js
-Code
-
-
-1000056840.jpg
-After downloading it is showing like this not downloading 
-
-Yes, I can see the problem. 👍
-
-The download link from ChatGPT is failing on your phone (ERR_INVALID_RESPONSE). Don't keep trying that link.
-
-Do this instead — much easier
-We will create server.js directly inside GitHub, so you don't need to download anything.
-
-You are already on the Create new file → server.js screen.
-
-1. Stay on that screen.
-2. In the large code box, I can give you the complete server.js code to copy and paste.
-Because the file is long, I don't want to send you a huge code block that is difficult to copy on your phone.
-
-Better option: I can create a smaller, complete server.js first that supports the shared stock system, and then we can add your full item master.
-
-If you want that, reply:
-
-Give server.js code
-
-and I will send the complete code directly here for you to copy into GitHub.
-
-
-Give code
-
-Yes. 👍 Since the download isn't working on your phone, copy this directly into the GitHub server.js editor.
-
-First
-At the top of the GitHub page, make sure the filename is:
-
-server.js
-Then delete anything currently in the large code box and paste the code below.
-
-const express = require("express");
-const cors = require("cors");
-const jwt = require("jsonwebtoken");
-const { Pool } = require("pg");
 const path = require("path");
 
 const app = express();
-
 const PORT = process.env.PORT || 10000;
+
+app.use(cors());
+app.use(express.json());
+
 const JWT_SECRET =
-  process.env.JWT_SECRET || "change-this-secret-before-production";
+  process.env.JWT_SECRET || "powder-stock-secret-2026";
 
 if (!process.env.DATABASE_URL) {
-  console.error("ERROR: DATABASE_URL is not set.");
+  console.error("DATABASE_URL is missing");
+  process.exit(1);
 }
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
-app.use(cors());
-app.use(express.json({ limit: "2mb" }));
-
-/* =====================================================
+/* =========================
    USERS
-===================================================== */
+========================= */
 
 const USERS = {
   pretreatment: {
@@ -151,24 +41,106 @@ const USERS = {
   }
 };
 
+/* =========================
+   DATABASE
+========================= */
 
-/* =====================================================
+async function initDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS items (
+      id SERIAL PRIMARY KEY,
+      item_code TEXT UNIQUE NOT NULL,
+      item_name TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS stock (
+      item_code TEXT PRIMARY KEY REFERENCES items(item_code)
+        ON DELETE CASCADE,
+      quantity NUMERIC NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS transactions (
+      id SERIAL PRIMARY KEY,
+      item_code TEXT NOT NULL,
+      item_name TEXT NOT NULL,
+      quantity NUMERIC NOT NULL,
+      type TEXT NOT NULL,
+      remarks TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS completed_stock (
+      id SERIAL PRIMARY KEY,
+      item_code TEXT NOT NULL,
+      item_name TEXT NOT NULL,
+      quantity NUMERIC NOT NULL,
+      remarks TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+
+  console.log("Database tables ready");
+}
+
+/* =========================
+   AUTHENTICATION
+========================= */
+
+function auth(req, res, next) {
+  const header = req.headers.authorization || "";
+
+  if (!header.startsWith("Bearer ")) {
+    return res.status(401).json({
+      error: "Login required"
+    });
+  }
+
+  const token = header.substring(7);
+
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      error: "Invalid or expired login"
+    });
+  }
+}
+
+/* =========================
+   HEALTH CHECK
+========================= */
+
+app.get("/api/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+
+    res.json({
+      ok: true,
+      database: true
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      database: false,
+      error: error.message
+    });
+  }
+});
+
+/* =========================
    LOGIN
-===================================================== */
+========================= */
 
 app.post("/api/login", (req, res) => {
-
-  const username = String(req.body?.username || "");
-  const password = String(req.body?.password || "");
+  const { username, password } = req.body || {};
 
   const user = USERS[username];
 
   if (!user || user.password !== password) {
-
     return res.status(401).json({
-      message: "Invalid username or password"
+      error: "Invalid username or password"
     });
-
   }
 
   const token = jwt.sign(
@@ -178,1454 +150,496 @@ app.post("/api/login", (req, res) => {
     },
     JWT_SECRET,
     {
-      expiresIn: "12h"
+      expiresIn: "7d"
     }
   );
 
   res.json({
     token: token,
-
-    user: {
-      username: username,
-      name: user.name
-    }
+    username: username,
+    name: user.name
   });
-
 });
 
+/* =========================
+   GET ALL DATA
+========================= */
 
-/* =====================================================
-   AUTHENTICATION
-===================================================== */
-
-function authenticate(req, res, next) {
-
-  const header = req.headers.authorization || "";
-
-  if (!header.startsWith("Bearer ")) {
-
-    return res.status(401).json({
-      message: "Authentication required"
-    });
-
-  }
-
-  const token = header.substring(7);
-
+app.get("/api/data", auth, async (req, res) => {
   try {
-
-    req.user = jwt.verify(
-      token,
-      JWT_SECRET
-    );
-
-    next();
-
-  } catch (error) {
-
-    return res.status(401).json({
-      message: "Invalid or expired session"
-    });
-
-  }
-
-}
-
-
-/* =====================================================
-   ROLE CHECK
-===================================================== */
-
-function hasRole(req, allowedRoles) {
-
-  return allowedRoles.includes(
-    req.user.username
-  );
-
-}
-
-
-/* =====================================================
-   NUMBER HELPER
-===================================================== */
-
-function toNumber(value) {
-
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return 0;
-  }
-
-  return number;
-
-}
-
-
-/* =====================================================
-   DATE / TIME
-===================================================== */
-
-function getDateTime(date = new Date()) {
-
-  return {
-
-    date: date.toLocaleDateString(
-      "en-IN",
-      {
-        timeZone: "Asia/Kolkata"
-      }
-    ),
-
-    time: date.toLocaleTimeString(
-      "en-IN",
-      {
-        timeZone: "Asia/Kolkata"
-      }
-    )
-
-  };
-
-}
-
-
-/* =====================================================
-   DATABASE INITIALIZATION
-===================================================== */
-
-async function initializeDatabase() {
-
-  if (!process.env.DATABASE_URL) {
-
-    throw new Error(
-      "DATABASE_URL environment variable is missing."
-    );
-
-  }
-
-
-  await pool.query(`
-
-    CREATE TABLE IF NOT EXISTS items (
-
-      code TEXT PRIMARY KEY,
-
-      name TEXT NOT NULL,
-
-      created_at TIMESTAMPTZ
-      NOT NULL DEFAULT NOW()
-
-    );
-
-  `);
-
-
-  await pool.query(`
-
-    CREATE TABLE IF NOT EXISTS stock (
-
-      item_code TEXT PRIMARY KEY
-      REFERENCES items(code)
-      ON UPDATE CASCADE,
-
-      pre_quantity NUMERIC
-      NOT NULL DEFAULT 0,
-
-      powder_balance NUMERIC
-      NOT NULL DEFAULT 0,
-
-      updated_at TIMESTAMPTZ
-      NOT NULL DEFAULT NOW()
-
-    );
-
-  `);
-
-
-  await pool.query(`
-
-    CREATE TABLE IF NOT EXISTS transactions (
-
-      id BIGSERIAL PRIMARY KEY,
-
-      type TEXT NOT NULL,
-
-      item_code TEXT NOT NULL
-      REFERENCES items(code),
-
-      item_name TEXT NOT NULL,
-
-      quantity NUMERIC NOT NULL,
-
-      remarks TEXT DEFAULT '',
-
-      from_department TEXT DEFAULT '',
-
-      to_department TEXT DEFAULT '',
-
-      username TEXT DEFAULT '',
-
-      created_at TIMESTAMPTZ
-      NOT NULL DEFAULT NOW()
-
-    );
-
-  `);
-
-
-  await pool.query(`
-
-    CREATE TABLE IF NOT EXISTS completed_stock (
-
-      id BIGSERIAL PRIMARY KEY,
-
-      item_code TEXT NOT NULL
-      REFERENCES items(code),
-
-      item_name TEXT NOT NULL,
-
-      quantity NUMERIC NOT NULL,
-
-      username TEXT DEFAULT '',
-
-      created_at TIMESTAMPTZ
-      NOT NULL DEFAULT NOW()
-
-    );
-
-  `);
-
-
-  console.log("Database tables are ready.");
-
-}
-
-
-/* =====================================================
-   HEALTH CHECK
-===================================================== */
-
-app.get("/api/health", async (req, res) => {
-
-  try {
-
-    await pool.query("SELECT 1");
+    const items = await pool.query(`
+      SELECT
+        i.item_code AS "itemCode",
+        i.item_name AS "itemName",
+        COALESCE(s.quantity, 0) AS quantity
+      FROM items i
+      LEFT JOIN stock s
+        ON s.item_code = i.item_code
+      ORDER BY i.item_code
+    `);
+
+    const transactions = await pool.query(`
+      SELECT
+        id,
+        item_code AS "itemCode",
+        item_name AS "itemName",
+        quantity,
+        type,
+        remarks,
+        created_at AS "createdAt"
+      FROM transactions
+      ORDER BY created_at DESC, id DESC
+    `);
+
+    const completed = await pool.query(`
+      SELECT
+        id,
+        item_code AS "itemCode",
+        item_name AS "itemName",
+        quantity,
+        remarks,
+        created_at AS "createdAt"
+      FROM completed_stock
+      ORDER BY created_at DESC, id DESC
+    `);
 
     res.json({
-
-      ok: true,
-
-      message: "Stock server is running"
-
+      items: items.rows,
+      transactions: transactions.rows,
+      completedStock: completed.rows
     });
 
   } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
+
+/* =========================
+   ADD NEW ITEM
+========================= */
+
+app.post("/api/items", auth, async (req, res) => {
+  const { itemCode, itemName } = req.body || {};
+
+  if (!itemCode || !itemName) {
+    return res.status(400).json({
+      error: "Item code and item name are required"
+    });
+  }
+
+  const code = String(itemCode).trim();
+  const name = String(itemName).trim();
+
+  try {
+    const result = await pool.query(
+      `
+      INSERT INTO items
+        (item_code, item_name)
+      VALUES
+        ($1, $2)
+      ON CONFLICT (item_code)
+      DO NOTHING
+      RETURNING
+        item_code AS "itemCode",
+        item_name AS "itemName"
+      `,
+      [code, name]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(409).json({
+        error: "Item code already exists"
+      });
+    }
+
+    await pool.query(
+      `
+      INSERT INTO stock
+        (item_code, quantity)
+      VALUES
+        ($1, 0)
+      ON CONFLICT (item_code)
+      DO NOTHING
+      `,
+      [code]
+    );
+
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
+
+/* =========================
+   ADD PRE TREATMENT STOCK
+========================= */
+
+app.post("/api/stock/add", auth, async (req, res) => {
+  const {
+    itemCode,
+    itemName,
+    quantity,
+    remarks
+  } = req.body || {};
+
+  const qty = Number(quantity);
+
+  if (
+    !itemCode ||
+    !itemName ||
+    !Number.isFinite(qty) ||
+    qty <= 0
+  ) {
+    return res.status(400).json({
+      error: "Valid item and quantity are required"
+    });
+  }
+
+  const code = String(itemCode).trim();
+  const name = String(itemName).trim();
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `
+      INSERT INTO items
+        (item_code, item_name)
+      VALUES
+        ($1, $2)
+      ON CONFLICT (item_code)
+      DO UPDATE SET
+        item_name = EXCLUDED.item_name
+      `,
+      [code, name]
+    );
+
+    await client.query(
+      `
+      INSERT INTO stock
+        (item_code, quantity)
+      VALUES
+        ($1, $2)
+      ON CONFLICT (item_code)
+      DO UPDATE SET
+        quantity = stock.quantity + EXCLUDED.quantity
+      `,
+      [code, qty]
+    );
+
+    await client.query(
+      `
+      INSERT INTO transactions
+        (item_code, item_name, quantity, type, remarks)
+      VALUES
+        ($1, $2, $3, 'ADD_STOCK', $4)
+      `,
+      [
+        code,
+        name,
+        qty,
+        remarks || ""
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true
+    });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
 
     console.error(error);
 
     res.status(500).json({
-
-      ok: false,
-
-      message: "Database connection failed"
-
+      error: error.message
     });
 
+  } finally {
+    client.release();
   }
-
 });
 
-
-/* =====================================================
-   GET ALL DATA
-===================================================== */
-
-app.get(
-  "/api/data",
-  authenticate,
-  async (req, res) => {
-
-    try {
-
-      const itemsResult = await pool.query(`
-
-        SELECT
-          code,
-          name
-
-        FROM items
-
-        ORDER BY code
-
-      `);
-
-
-      const stockResult = await pool.query(`
-
-        SELECT
-
-          item_code,
-          pre_quantity,
-          powder_balance
-
-        FROM stock
-
-      `);
-
-
-      const transactionsResult = await pool.query(`
-
-        SELECT
-
-          id,
-          type,
-          item_code,
-          item_name,
-          quantity,
-          remarks,
-          from_department,
-          to_department,
-          username,
-          created_at
-
-        FROM transactions
-
-        ORDER BY id ASC
-
-      `);
-
-
-      const completedResult = await pool.query(`
-
-        SELECT
-
-          id,
-          item_code,
-          item_name,
-          quantity,
-          username,
-          created_at
-
-        FROM completed_stock
-
-        ORDER BY id ASC
-
-      `);
-
-
-      const transactions =
-        transactionsResult.rows.map(row => {
-
-          const dt =
-            getDateTime(
-              new Date(row.created_at)
-            );
-
-          return {
-
-            id: row.id,
-
-            type: row.type,
-
-            item_code: row.item_code,
-
-            item_name: row.item_name,
-
-            quantity:
-              toNumber(row.quantity),
-
-            remarks:
-              row.remarks || "",
-
-            from:
-              row.from_department || "",
-
-            to:
-              row.to_department || "",
-
-            username:
-              row.username || "",
-
-            date: dt.date,
-
-            time: dt.time
-
-          };
-
-        });
-
-
-      const completed =
-        completedResult.rows.map(row => {
-
-          const dt =
-            getDateTime(
-              new Date(row.created_at)
-            );
-
-          return {
-
-            id: row.id,
-
-            item_code: row.item_code,
-
-            item_name: row.item_name,
-
-            quantity:
-              toNumber(row.quantity),
-
-            username:
-              row.username || "",
-
-            date: dt.date,
-
-            time: dt.time
-
-          };
-
-        });
-
-
-      res.json({
-
-        items:
-          itemsResult.rows,
-
-        stock:
-          stockResult.rows.map(row => ({
-
-            item_code:
-              row.item_code,
-
-            pre_quantity:
-              toNumber(row.pre_quantity),
-
-            powder_balance:
-              toNumber(row.powder_balance)
-
-          })),
-
-        transactions:
-          transactions,
-
-        completed:
-          completed
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "GET DATA ERROR:",
-        error
-      );
-
-      res.status(500).json({
-
-        message:
-          "Unable to load stock data"
-
-      });
-
-    }
-
+/* =========================
+   SEND TO POWDER COATING
+========================= */
+
+app.post("/api/stock/send", auth, async (req, res) => {
+  const {
+    itemCode,
+    itemName,
+    quantity,
+    remarks
+  } = req.body || {};
+
+  const qty = Number(quantity);
+
+  if (
+    !itemCode ||
+    !itemName ||
+    !Number.isFinite(qty) ||
+    qty <= 0
+  ) {
+    return res.status(400).json({
+      error: "Valid item and quantity are required"
+    });
   }
-);
 
+  const code = String(itemCode).trim();
+  const name = String(itemName).trim();
 
-/* =====================================================
-   ADD NEW ITEM CODE
-===================================================== */
-
-app.post(
-  "/api/items",
-  authenticate,
-  async (req, res) => {
-
-    if (
-      !hasRole(
-        req,
-        ["pretreatment"]
-      )
-    ) {
-
-      return res.status(403).json({
-
-        message:
-          "Only Pre Treatment can add item codes"
-
-      });
-
-    }
-
-
-    const code =
-      String(
-        req.body?.code || ""
-      ).trim();
-
-    const name =
-      String(
-        req.body?.name || ""
-      ).trim();
-
-
-    if (!code || !name) {
-
-      return res.status(400).json({
-
-        message:
-          "Item Code and Item Name are required"
-
-      });
-
-    }
-
-
-    const client =
-      await pool.connect();
-
-    try {
-
-      await client.query(
-        "BEGIN"
-      );
-
-
-      const existing =
-        await client.query(
-
-          `
-
-          SELECT code
-
-          FROM items
-
-          WHERE LOWER(code)
-          = LOWER($1)
-
-          `,
-
-          [code]
-
-        );
-
-
-      if (existing.rowCount > 0) {
-
-        await client.query(
-          "ROLLBACK"
-        );
-
-        return res.status(409).json({
-
-          message:
-            "This Item Code already exists"
-
-        });
-
-      }
-
-
-      await client.query(
-
-        `
-
-        INSERT INTO items
-        (
-          code,
-          name
-        )
-
-        VALUES
-        (
-          $1,
-          $2
-        )
-
-        `,
-
-        [
-          code,
-          name
-        ]
-
-      );
-
-
-      await client.query(
-
-        `
-
-        INSERT INTO stock
-        (
-          item_code,
-          pre_quantity,
-          powder_balance
-        )
-
-        VALUES
-        (
-          $1,
-          0,
-          0
-        )
-
-        `,
-
-        [code]
-
-      );
-
-
-      await client.query(
-        "COMMIT"
-      );
-
-
-      res.json({
-
-        message:
-          "Item added successfully",
-
-        item: {
-          code: code,
-          name: name
-        }
-
-      });
-
-    } catch (error) {
-
-      await client.query(
-        "ROLLBACK"
-      );
-
-      console.error(error);
-
-      res.status(500).json({
-
-        message:
-          "Unable to add item"
-
-      });
-
-    } finally {
-
-      client.release();
-
-    }
-
-  }
-);
-
-
-/* =====================================================
-   ADD PRE TREATMENT STOCK
-===================================================== */
-
-app.post(
-  "/api/stock/add",
-  authenticate,
-  async (req, res) => {
-
-    if (
-      !hasRole(
-        req,
-        ["pretreatment"]
-      )
-    ) {
-
-      return res.status(403).json({
-
-        message:
-          "Only Pre Treatment can add stock"
-
-      });
-
-    }
-
-
-    const itemCode =
-      String(
-        req.body?.itemCode || ""
-      ).trim();
-
-    const quantity =
-      toNumber(
-        req.body?.quantity
-      );
-
-
-    if (
-      !itemCode ||
-      quantity <= 0
-    ) {
-
-      return res.status(400).json({
-
-        message:
-          "Valid item and quantity are required"
-
-      });
-
-    }
-
-
-    const client =
-      await pool.connect();
-
-    try {
-
-      await client.query(
-        "BEGIN"
-      );
-
-
-      const itemResult =
-        await client.query(
-
-          `
-
-          SELECT
-            code,
-            name
-
-          FROM items
-
-          WHERE code = $1
-
-          FOR UPDATE
-
-          `,
-
-          [itemCode]
-
-        );
-
-
-      if (
-        itemResult.rowCount === 0
-      ) {
-
-        await client.query(
-          "ROLLBACK"
-        );
-
-        return res.status(404).json({
-
-          message:
-            "Item not found"
-
-        });
-
-      }
-
-
-      const item =
-        itemResult.rows[0];
-
-
-      await client.query(
-
-        `
-
-        INSERT INTO stock
-        (
-          item_code,
-          pre_quantity,
-          powder_balance
-        )
-
-        VALUES
-        (
-          $1,
-          $2,
-          0
-        )
-
-        ON CONFLICT(item_code)
-
-        DO UPDATE SET
-
-          pre_quantity =
-            stock.pre_quantity
-            + EXCLUDED.pre_quantity,
-
-          updated_at = NOW()
-
-        `,
-
-        [
-          itemCode,
-          quantity
-        ]
-
-      );
-
-
-      await client.query(
-
-        `
-
-        INSERT INTO transactions
-        (
-          type,
-          item_code,
-          item_name,
-          quantity,
-          username
-        )
-
-        VALUES
-        (
-          'ADD',
-          $1,
-          $2,
-          $3,
-          $4
-        )
-
-        `,
-
-        [
-          itemCode,
-          item.name,
-          quantity,
-          req.user.username
-        ]
-
-      );
-
-
-      await client.query(
-        "COMMIT"
-      );
-
-
-      res.json({
-
-        message:
-          "Stock added successfully"
-
-      });
-
-    } catch (error) {
-
-      await client.query(
-        "ROLLBACK"
-      );
-
-      console.error(
-        "ADD STOCK ERROR:",
-        error
-      );
-
-      res.status(500).json({
-
-        message:
-          "Unable to add stock"
-
-      });
-
-    } finally {
-
-      client.release();
-
-    }
-
-  }
-);
-
-
-/* =====================================================
-   SEND STOCK TO POWDER COATING
-===================================================== */
-
-app.post(
-  "/api/stock/send",
-  authenticate,
-  async (req, res) => {
-
-    if (
-      !hasRole(
-        req,
-        ["pretreatment"]
-      )
-    ) {
-
-      return res.status(403).json({
-
-        message:
-          "Only Pre Treatment can send stock"
-
-      });
-
-    }
-
-
-    const itemCode =
-      String(
-        req.body?.itemCode || ""
-      ).trim();
-
-    const quantity =
-      toNumber(
-        req.body?.quantity
-      );
-
-    const remarks =
-      String(
-        req.body?.remarks || ""
-      ).trim();
-
-
-    if (
-      !itemCode ||
-      quantity <= 0
-    ) {
-
-      return res.status(400).json({
-
-        message:
-          "Valid item and quantity are required"
-
-      });
-
-    }
-
-
-    const client =
-      await pool.connect();
-
-    try {
-
-      await client.query(
-        "BEGIN"
-      );
-
-
-      const result =
-        await client.query(
-
-          `
-
-          SELECT
-
-            i.code,
-
-            i.name,
-
-            s.pre_quantity,
-
-            s.powder_balance
-
-          FROM items i
-
-          JOIN stock s
-
-          ON s.item_code = i.code
-
-          WHERE i.code = $1
-
-          FOR UPDATE
-
-          `,
-
-          [itemCode]
-
-        );
-
-
-      if (
-        result.rowCount === 0
-      ) {
-
-        await client.query(
-          "ROLLBACK"
-        );
-
-        return res.status(404).json({
-
-          message:
-            "Item not found"
-
-        });
-
-      }
-
-
-      const row =
-        result.rows[0];
-
-
-      const available =
-        toNumber(
-          row.pre_quantity
-        );
-
-
-      if (
-        quantity > available
-      ) {
-
-        await client.query(
-          "ROLLBACK"
-        );
-
-        return res.status(400).json({
-
-          message:
-            `Insufficient stock. Available: ${available}`
-
-        });
-
-      }
-
-
-      await client.query(
-
-        `
-
-        UPDATE stock
-
-        SET
-
-          pre_quantity =
-            pre_quantity - $1,
-
-          powder_balance =
-            powder_balance + $1,
-
-          updated_at = NOW()
-
-        WHERE item_code = $2
-
-        `,
-
-        [
-          quantity,
-          itemCode
-        ]
-
-      );
-
-
-      await client.query(
-
-        `
-
-        INSERT INTO transactions
-        (
-          type,
-          item_code,
-          item_name,
-          quantity,
-          remarks,
-          from_department,
-          to_department,
-          username
-        )
-
-        VALUES
-        (
-          'SEND_TO_POWDER',
-          $1,
-          $2,
-          $3,
-          $4,
-          'Pre Treatment',
-          'Powder Coating',
-          $5
-        )
-
-        `,
-
-        [
-          itemCode,
-          row.name,
-          quantity,
-          remarks,
-          req.user.username
-        ]
-
-      );
-
-
-      await client.query(
-        "COMMIT"
-      );
-
-
-      res.json({
-
-        message:
-          "Stock sent to Powder Coating successfully"
-
-      });
-
-    } catch (error) {
-
-      await client.query(
-        "ROLLBACK"
-      );
-
-      console.error(
-        "SEND STOCK ERROR:",
-        error
-      );
-
-      res.status(500).json({
-
-        message:
-          "Unable to send stock"
-
-      });
-
-    } finally {
-
-      client.release();
-
-    }
-
-  }
-);
-
-
-/* =====================================================
-   COMPLETE POWDER COATING STOCK
-===================================================== */
-
-app.post(
-  "/api/stock/complete",
-  authenticate,
-  async (req, res) => {
-
-    if (
-      !hasRole(
-        req,
-        ["powdercoating"]
-      )
-    ) {
-
-      return res.status(403).json({
-
-        message:
-          "Only Powder Coating can complete stock"
-
-      });
-
-    }
-
-
-    const itemCode =
-      String(
-        req.body?.itemCode || ""
-      ).trim();
-
-    const quantity =
-      toNumber(
-        req.body?.quantity
-      );
-
-
-    if (
-      !itemCode ||
-      quantity <= 0
-    ) {
-
-      return res.status(400).json({
-
-        message:
-          "Valid item and quantity are required"
-
-      });
-
-    }
-
-
-    const client =
-      await pool.connect();
-
-    try {
-
-      await client.query(
-        "BEGIN"
-      );
-
-
-      const result =
-        await client.query(
-
-          `
-
-          SELECT
-
-            i.code,
-
-            i.name,
-
-            s.powder_balance
-
-          FROM items i
-
-          JOIN stock s
-
-          ON s.item_code = i.code
-
-          WHERE i.code = $1
-
-          FOR UPDATE
-
-          `,
-
-          [itemCode]
-
-        );
-
-
-      if (
-        result.rowCount === 0
-      ) {
-
-        await client.query(
-          "ROLLBACK"
-        );
-
-        return res.status(404).json({
-
-          message:
-            "Item not found"
-
-        });
-
-      }
-
-
-      const row =
-        result.rows[0];
-
-
-      const available =
-        toNumber(
-          row.powder_balance
-        );
-
-
-      if (
-        quantity > available
-      ) {
-
-        await client.query(
-          "ROLLBACK"
-        );
-
-        return res.status(400).json({
-
-          message:
-            `Insufficient Powder Coating stock. Available: ${available}`
-
-        });
-
-      }
-
-
-      await client.query(
-
-        `
-
-        UPDATE stock
-
-        SET
-
-          powder_balance =
-            powder_balance - $1,
-
-          updated_at = NOW()
-
-        WHERE item_code = $2
-
-        `,
-
-        [
-          quantity,
-          itemCode
-        ]
-
-      );
-
-
-      await client.query(
-
-        `
-
-        INSERT INTO completed_stock
-        (
-          item_code,
-          item_name,
-          quantity,
-          username
-        )
-
-        VALUES
-        (
-          $1,
-          $2,
-          $3,
-          $4
-        )
-
-        `,
-
-        [
-          itemCode,
-          row.name,
-          quantity,
-          req.user.username
-        ]
-
-      );
-
-
-      await client.query(
-
-        `
-
-        INSERT INTO transactions
-        (
-          type,
-          item_code,
-          item_name,
-          quantity,
-          username
-        )
-
-        VALUES
-        (
-          'POWDER_COMPLETED',
-          $1,
-          $2,
-          $3,
-          $4
-        )
-
-        `,
-
-        [
-          itemCode,
-          row.name,
-          quantity,
-          req.user.username
-        ]
-
-      );
-
-
-      await client.query(
-        "COMMIT"
-      );
-
-
-      res.json({
-
-        message:
-          "Completed stock saved successfully"
-
-      });
-
-    } catch (error) {
-
-      await client.query(
-        "ROLLBACK"
-      );
-
-      console.error(
-        "COMPLETE STOCK ERROR:",
-        error
-      );
-
-      res.status(500).json({
-
-        message:
-          "Unable to save completed stock"
-
-      });
-
-    } finally {
-
-      client.release();
-
-    }
-
-  }
-);
-
-
-/* =====================================================
-   SERVE INDEX.HTML
-===================================================== */
-
-app.get(
-  "*",
-  (req, res) => {
-
-    if (
-      req.path.startsWith("/api/")
-    ) {
-
-      return res.status(404).json({
-
-        message:
-          "API endpoint not found"
-
-      });
-
-    }
-
-    res.sendFile(
-      path.join(
-        __dirname,
-        "index.html"
-      )
-    );
-
-  }
-);
-
-
-/* =====================================================
-   START SERVER
-===================================================== */
-
-async function startServer() {
+  const client = await pool.connect();
 
   try {
+    await client.query("BEGIN");
 
-    await initializeDatabase();
-
-    app.listen(
-      PORT,
-      () => {
-
-        console.log(
-          `Stock Management Server running on port ${PORT}`
-        );
-
-      }
+    const result = await client.query(
+      `
+      SELECT quantity
+      FROM stock
+      WHERE item_code = $1
+      FOR UPDATE
+      `,
+      [code]
     );
+
+    const available = Number(
+      result.rows[0]?.quantity || 0
+    );
+
+    if (qty > available) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error:
+          "Insufficient stock. Available quantity: " +
+          available
+      });
+    }
+
+    await client.query(
+      `
+      UPDATE stock
+      SET quantity = quantity - $1
+      WHERE item_code = $2
+      `,
+      [qty, code]
+    );
+
+    await client.query(
+      `
+      INSERT INTO transactions
+        (item_code, item_name, quantity, type, remarks)
+      VALUES
+        ($1, $2, $3, 'SEND_TO_POWDER', $4)
+      `,
+      [
+        code,
+        name,
+        qty,
+        remarks || ""
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      balance: available - qty
+    });
 
   } catch (error) {
-
-    console.error(
-      "DATABASE INITIALIZATION FAILED:"
-    );
+    await client.query("ROLLBACK");
 
     console.error(error);
 
-    process.exit(1);
+    res.status(500).json({
+      error: error.message
+    });
 
+  } finally {
+    client.release();
+  }
+});
+
+/* =========================
+   POWDER COATING COMPLETED
+========================= */
+
+app.post("/api/stock/complete", auth, async (req, res) => {
+  const {
+    itemCode,
+    itemName,
+    quantity,
+    remarks
+  } = req.body || {};
+
+  const qty = Number(quantity);
+
+  if (
+    !itemCode ||
+    !itemName ||
+    !Number.isFinite(qty) ||
+    qty <= 0
+  ) {
+    return res.status(400).json({
+      error: "Valid item and quantity are required"
+    });
   }
 
-}
+  const code = String(itemCode).trim();
+  const name = String(itemName).trim();
 
-startServer();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const receivedResult = await client.query(
+      `
+      SELECT COALESCE(SUM(quantity), 0) AS total
+      FROM transactions
+      WHERE item_code = $1
+      AND type = 'SEND_TO_POWDER'
+      `,
+      [code]
+    );
+
+    const completedResult = await client.query(
+      `
+      SELECT COALESCE(SUM(quantity), 0) AS total
+      FROM completed_stock
+      WHERE item_code = $1
+      `,
+      [code]
+    );
+
+    const received = Number(
+      receivedResult.rows[0].total
+    );
+
+    const completed = Number(
+      completedResult.rows[0].total
+    );
+
+    const balance = received - completed;
+
+    if (qty > balance) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error:
+          "Insufficient powder coating balance. Available quantity: " +
+          balance
+      });
+    }
+
+    await client.query(
+      `
+      INSERT INTO completed_stock
+        (item_code, item_name, quantity, remarks)
+      VALUES
+        ($1, $2, $3, $4)
+      `,
+      [
+        code,
+        name,
+        qty,
+        remarks || ""
+      ]
+    );
+
+    await client.query(
+      `
+      INSERT INTO transactions
+        (item_code, item_name, quantity, type, remarks)
+      VALUES
+        ($1, $2, $3, 'POWDER_COMPLETED', $4)
+      `,
+      [
+        code,
+        name,
+        qty,
+        remarks || ""
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      balance: balance - qty
+    });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  } finally {
+    client.release();
+  }
+});
+
+/* =========================
+   FRONTEND
+========================= */
+
+app.get("/", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "index.html")
+  );
+});
+
+/* Express 5 fallback */
+app.get("/{*splat}", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "index.html")
+  );
+});
+
+/* =========================
+   START SERVER
+========================= */
+
+initDatabase()
+  .then(() => {
+
+    app.listen(
+      PORT,
+      "0.0.0.0",
+      () => {
+        console.log(
+          "Server running on port " + PORT
+        );
+      }
+    );
+
+  })
+  .catch((error) => {
+
+    console.error(
+      "Database initialization failed:",
+      error
+    );
+
+    process.exit(1);
+
+  });
