@@ -1,0 +1,18 @@
+{
+  "name": "powder-coating-stock-management",
+  "version": "1.0.0",
+  "description": "Online shared Powder Coating and Pre Treatment Stock Management System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
