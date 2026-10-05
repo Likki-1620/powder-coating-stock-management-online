@@ -375,6 +375,7 @@ app.post("/api/stock/add", auth, async (req, res) => {
 
 /* =========================
    SEND TO POWDER COATING
+   → CREATES PENDING RECEIPT
 ========================= */
 
 app.post("/api/stock/send", auth, async (req, res) => {
@@ -430,6 +431,8 @@ app.post("/api/stock/send", auth, async (req, res) => {
       });
     }
 
+    /* Reduce Pre Treatment stock */
+
     await client.query(
       `
       UPDATE stock
@@ -439,12 +442,14 @@ app.post("/api/stock/send", auth, async (req, res) => {
       [qty, code]
     );
 
+    /* Create Pending Receipt */
+
     await client.query(
       `
       INSERT INTO transactions
         (item_code, item_name, quantity, type, remarks)
       VALUES
-        ($1, $2, $3, 'SEND_TO_POWDER', $4)
+        ($1, $2, $3, 'PENDING_RECEIPT', $4)
       `,
       [
         code,
@@ -458,6 +463,7 @@ app.post("/api/stock/send", auth, async (req, res) => {
 
     res.json({
       success: true,
+      pending: true,
       balance: available - qty
     });
 
@@ -476,10 +482,111 @@ app.post("/api/stock/send", auth, async (req, res) => {
 });
 
 /* =========================
+   ACCEPT PENDING RECEIPT
+   → ADDS TO POWDER COATING
+========================= */
+
+app.post("/api/stock/accept-receipt", auth, async (req, res) => {
+
+  if (req.user?.username !== "powdercoating") {
+    return res.status(403).json({
+      error: "Only Powder Coating can accept receipts"
+    });
+  }
+
+  const transactionId = Number(
+    req.body?.transactionId
+  );
+
+  if (
+    !Number.isInteger(transactionId) ||
+    transactionId <= 0
+  ) {
+    return res.status(400).json({
+      error: "Valid pending receipt is required"
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      `
+      SELECT
+        id,
+        item_code,
+        item_name,
+        quantity,
+        remarks
+      FROM transactions
+      WHERE id = $1
+        AND type = 'PENDING_RECEIPT'
+      FOR UPDATE
+      `,
+      [transactionId]
+    );
+
+    if (result.rowCount === 0) {
+
+      await client.query("ROLLBACK");
+
+      return res.status(404).json({
+        error:
+          "Pending receipt not found or already accepted"
+      });
+    }
+
+    const receipt = result.rows[0];
+
+    /*
+      Change Pending Receipt
+      into Received Stock.
+
+      This is what makes the quantity
+      available in Powder Coating.
+    */
+
+    await client.query(
+      `
+      UPDATE transactions
+      SET type = 'RECEIVE_POWDER'
+      WHERE id = $1
+      `,
+      [transactionId]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      itemCode: receipt.item_code,
+      itemName: receipt.item_name,
+      quantity: receipt.quantity
+    });
+
+  } catch (error) {
+
+    await client.query("ROLLBACK");
+
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  } finally {
+    client.release();
+  }
+});
+
+/* =========================
    POWDER COATING COMPLETED
 ========================= */
 
 app.post("/api/stock/complete", auth, async (req, res) => {
+
   const {
     itemCode,
     itemName,
@@ -506,14 +613,21 @@ app.post("/api/stock/complete", auth, async (req, res) => {
   const client = await pool.connect();
 
   try {
+
     await client.query("BEGIN");
+
+    /*
+      IMPORTANT:
+      Only ACCEPTED receipts count as
+      Powder Coating available stock.
+    */
 
     const receivedResult = await client.query(
       `
       SELECT COALESCE(SUM(quantity), 0) AS total
       FROM transactions
       WHERE item_code = $1
-      AND type = 'SEND_TO_POWDER'
+        AND type = 'RECEIVE_POWDER'
       `,
       [code]
     );
@@ -538,6 +652,7 @@ app.post("/api/stock/complete", auth, async (req, res) => {
     const balance = received - completed;
 
     if (qty > balance) {
+
       await client.query("ROLLBACK");
 
       return res.status(400).json({
@@ -585,6 +700,7 @@ app.post("/api/stock/complete", auth, async (req, res) => {
     });
 
   } catch (error) {
+
     await client.query("ROLLBACK");
 
     console.error(error);
@@ -609,6 +725,7 @@ app.get("/", (req, res) => {
 });
 
 /* Express 5 fallback */
+
 app.get("/{*splat}", (req, res) => {
   res.sendFile(
     path.join(__dirname, "index.html")
