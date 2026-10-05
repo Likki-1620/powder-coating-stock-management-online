@@ -487,6 +487,81 @@ function selectAddItem(item){
   if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
 }
 
+function searchCompleteItem(){
+  const searchEl=document.getElementById("completeItemSearch");
+  const codeEl=document.getElementById("completeItemCode");
+  const nameEl=document.getElementById("completeItemName");
+  const balanceEl=document.getElementById("completeBalanceQty");
+  const resultsEl=document.getElementById("completeItemSearchResults");
+  const term=(searchEl?.value||"").trim().toLowerCase();
+
+  if(!term){
+    codeEl.value="";
+    nameEl.value="";
+    if(balanceEl) balanceEl.value="";
+    if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
+    return;
+  }
+
+  const matches=ITEMS.filter(x=>
+    String(x.code).toLowerCase().includes(term) ||
+    String(x.name).toLowerCase().includes(term)
+  );
+  const exact=ITEMS.find(x=>
+    String(x.code).trim().toLowerCase()===term ||
+    String(x.name).trim().toLowerCase()===term
+  );
+
+  if(exact){
+    selectCompleteItem(exact);
+  }else{
+    codeEl.value="";
+    nameEl.value="";
+    if(balanceEl) balanceEl.value="";
+  }
+
+  if(resultsEl){
+    resultsEl.innerHTML="";
+    if(matches.length){
+      matches.slice(0,50).forEach(item=>{
+        const row=document.createElement("div");
+        row.className="item-search-option";
+        row.innerHTML='<div class="item-search-code">Item Code: '+escapeHtml(String(item.code))+'</div><div class="item-search-name">'+escapeHtml(String(item.name))+'</div>';
+        row.onclick=()=>selectCompleteItem(item);
+        resultsEl.appendChild(row);
+      });
+      resultsEl.style.display="block";
+    }else{
+      resultsEl.innerHTML='<div class="item-search-option">No matching item found</div>';
+      resultsEl.style.display="block";
+    }
+  }
+}
+
+function selectCompleteItem(item){
+  document.getElementById("completeItemSearch").value=item.code+" - "+item.name;
+  document.getElementById("completeItemCode").value=item.code;
+  document.getElementById("completeItemName").value=item.name;
+  const balanceEl=document.getElementById("completeBalanceQty");
+  if(balanceEl) balanceEl.value=getPowderBalanceQuantity(item.code);
+  const resultsEl=document.getElementById("completeItemSearchResults");
+  if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
+}
+
+function updateCompleteStockInfo(){
+  const code=document.getElementById("completeItemCode")?.value.trim()||"";
+  const item=ITEMS.find(x=>String(x.code).trim().toLowerCase()===code.toLowerCase());
+  const nameEl=document.getElementById("completeItemName");
+  const balanceEl=document.getElementById("completeBalanceQty");
+  if(item){
+    if(nameEl) nameEl.value=item.name;
+    if(balanceEl) balanceEl.value=getPowderBalanceQuantity(item.code);
+  }else{
+    if(nameEl) nameEl.value="";
+    if(balanceEl) balanceEl.value="";
+  }
+}
+
 function updateSendStockInfo(){
   const code=document.getElementById("sendItemCode").value.trim();
   const item=ITEMS.find(x=>String(x.code).trim().toLowerCase()===code.toLowerCase());
