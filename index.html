@@ -932,8 +932,10 @@ function renderReceivedStock(){
 }
 
 function getPowderReceivedQuantity(code){
+  // Only accepted receipts become Powder Coating stock.
+  // PENDING_RECEIPT and SEND_TO_POWDER are not yet available.
   return transactions
-    .filter(t=>t && (t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER") && String(t.itemCode)===String(code))
+    .filter(t=>t && t.type==="RECEIVE_POWDER" && String(t.itemCode)===String(code))
     .reduce((sum,t)=>sum+(Number(t.quantity)||0),0);
 }
 
