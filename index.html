@@ -189,6 +189,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
       <div class="card" onclick="showPage('receivedStock',this)" style="cursor:pointer" title="Tap to view Received Stock"><div class="card-icon">📥</div><div class="card-title">Received Stock</div><div class="card-value" id="powderReceived">0</div></div>
       <div class="card" onclick="showPage('powderAvailable',this)" style="cursor:pointer" title="Tap to view Balance Stock"><div class="card-icon">📊</div><div class="card-title">Balance Stock</div><div class="card-value" id="powderBalanceTotal">0</div></div>
       <div class="card" onclick="showPage('completedStock',this)" style="cursor:pointer" title="Tap to view Completed Stock"><div class="card-icon">✅</div><div class="card-title">Completed Stock</div><div class="card-value" id="powderCompleted">0</div></div>
+      <div class="card" onclick="showPage('editStock',this)" style="cursor:pointer" title="Tap to edit Powder Coating stock"><div class="card-icon">✏️</div><div class="card-title">Edit Stock</div><div class="card-value">✏️</div></div>
     </div>
     <div class="panel"><h2>Powder Coating</h2><p>Stock sent by Pre Treatment automatically appears in <b>Received Stock</b>. After completed quantities are entered, the remaining quantity appears in <b>Balance Stock</b>.</p></div>
   </section>
@@ -213,6 +214,25 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
       <input class="search" id="powderSearch" type="search" autocomplete="off" oninput="renderPowderStock()" placeholder="🔎 Type Item Code or Item Name...">
       <div class="small-note">Search works instantly by Item Code or Item Name.</div>
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Balance Quantity</th></tr></thead><tbody id="powderStockTable"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="page" id="editStock">
+    <div class="panel"><h2>✏️ Edit Powder Coating Stock</h2>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>🔎 Search by Item Code or Item Name</label>
+        <input type="search" id="editItemSearch" autocomplete="off" placeholder="🔎 Type Item Code or Item Name" oninput="searchEditItem()">
+        <div id="editItemSearchResults" class="item-search-results"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>Item Code</label><input id="editItemCode" type="text" readonly placeholder="Item Code will come automatically"></div>
+        <div class="form-group"><label>Item Name</label><input id="editItemName" type="text" readonly placeholder="Item Name will come automatically"></div>
+        <div class="form-group"><label>Stock</label><input id="editStockQty" type="number" readonly placeholder="Current stock"></div>
+        <div class="form-group"><label>Updated Stock</label><input id="editUpdatedStock" type="number" min="0" step="any" placeholder="Enter updated stock"></div>
+        <div class="form-group"><label>Remarks</label><input id="editStockRemarks" type="text" placeholder="Enter remarks"></div>
+      </div>
+      <button class="primary-btn" onclick="saveEditedStock()">💾 Save</button>
+      <div class="small-note">Powder Coating can change the existing balance quantity. Enter the new total quantity in <b>Updated Stock</b>.</div>
     </div>
   </section>
 
@@ -645,6 +665,71 @@ function selectSendItem(item){
   if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
 }
 
+function searchEditItem(){
+  const searchEl=document.getElementById("editItemSearch");
+  const codeEl=document.getElementById("editItemCode");
+  const nameEl=document.getElementById("editItemName");
+  const stockEl=document.getElementById("editStockQty");
+  const resultsEl=document.getElementById("editItemSearchResults");
+  const term=(searchEl?.value||"").trim().toLowerCase();
+  if(!term){
+    codeEl.value=""; nameEl.value=""; stockEl.value="";
+    if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
+    return;
+  }
+  const matches=ITEMS.filter(x=>String(x.code).toLowerCase().includes(term)||String(x.name).toLowerCase().includes(term));
+  const exact=ITEMS.find(x=>String(x.code).trim().toLowerCase()===term || String(x.name).trim().toLowerCase()===term);
+  if(exact) selectEditItem(exact);
+  else { codeEl.value=""; nameEl.value=""; stockEl.value=""; }
+  if(resultsEl){
+    resultsEl.innerHTML="";
+    if(matches.length){
+      matches.slice(0,50).forEach(item=>{
+        const row=document.createElement("div");
+        row.className="item-search-option";
+        row.innerHTML='<div class="item-search-code">Item Code: '+escapeHtml(String(item.code))+'</div><div class="item-search-name">'+escapeHtml(String(item.name))+'</div>';
+        row.onclick=()=>selectEditItem(item);
+        resultsEl.appendChild(row);
+      });
+      resultsEl.style.display="block";
+    }else{
+      resultsEl.innerHTML='<div class="item-search-option">No matching item found</div>';
+      resultsEl.style.display="block";
+    }
+  }
+}
+
+function selectEditItem(item){
+  document.getElementById("editItemSearch").value=item.code+" - "+item.name;
+  document.getElementById("editItemCode").value=item.code;
+  document.getElementById("editItemName").value=item.name;
+  document.getElementById("editStockQty").value=getPowderBalanceQuantity(item.code);
+  document.getElementById("editUpdatedStock").value="";
+  const resultsEl=document.getElementById("editItemSearchResults");
+  if(resultsEl){resultsEl.innerHTML="";resultsEl.style.display="none";}
+}
+
+async function saveEditedStock(){
+  const code=String(document.getElementById("editItemCode")?.value||"").trim();
+  const updated=Number(document.getElementById("editUpdatedStock")?.value);
+  const remarks=String(document.getElementById("editStockRemarks")?.value||"").trim();
+  const item=ITEMS.find(x=>String(x.code).trim()===code);
+  const current=getPowderBalanceQuantity(code);
+  if(!item){alert("Please search and select an Item Code first.");return;}
+  if(!Number.isFinite(updated)||updated<0){alert("Please enter a valid Updated Stock quantity.");return;}
+  if(updated===current){alert("Updated Stock is the same as the current Stock.");return;}
+  try{
+    await apiFetch("/api/stock/edit",{method:"POST",body:{itemCode:item.code,itemName:item.name,updatedQuantity:updated,remarks:remarks}});
+    await loadServerData();
+    document.getElementById("editStockQty").value=getPowderBalanceQuantity(item.code);
+    document.getElementById("editUpdatedStock").value="";
+    document.getElementById("editStockRemarks").value="";
+    alert(item.name+" stock updated successfully.");
+  }catch(error){
+    alert("Unable to update stock: "+error.message);
+  }
+}
+
 async function addNewItem(){
   const code=String(document.getElementById("newItemCode").value||"").trim();
   const name=String(document.getElementById("newItemName").value||"").trim();
@@ -859,12 +944,13 @@ function getPowderCompletedQuantity(code){
 }
 
 function getPowderBalanceQuantity(code){
-  // Balance is always Received Stock minus Powder Coating Completed Stock.
   const received=getPowderReceivedQuantity(code);
   const done=getPowderCompletedQuantity(code);
-  const hasHistory=transactions.some(t=>t && (t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER")) || completed.length>0;
-  if(hasHistory) return Math.max(0, received-done);
-  // Keep compatibility with older saved data.
+  const edits=transactions
+    .filter(t=>t && t.type==="EDIT_POWDER_STOCK" && String(t.itemCode)===String(code))
+    .reduce((sum,t)=>sum+(Number(t.quantity)||0),0);
+  const hasHistory=transactions.some(t=>t && (t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER" || t.type==="EDIT_POWDER_STOCK")) || completed.length>0;
+  if(hasHistory) return Math.max(0, received-done+edits);
   return Math.max(0,Number(stockData.powderCoating?.[code]||0));
 }
 
