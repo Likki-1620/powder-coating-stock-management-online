@@ -560,6 +560,99 @@ async function addNewItem(){
   }catch(error){ alert(error.message); }
 }
 
+
+async function addStock(){
+  const code=String(document.getElementById("addItemCode")?.value||"").trim();
+  const qty=Number(document.getElementById("addQty")?.value);
+  const item=ITEMS.find(x=>String(x.code).trim()===code);
+
+  if(!item){
+    alert("Please search and select an Item Code first.");
+    return;
+  }
+  if(!Number.isFinite(qty)||qty<=0){
+    alert("Please enter a valid quantity.");
+    return;
+  }
+
+  try{
+    await apiFetch("/api/stock/add",{
+      method:"POST",
+      body:{itemCode:item.code,itemName:item.name,quantity:qty,remarks:""}
+    });
+    await loadServerData();
+    document.getElementById("addQty").value="";
+    alert(qty+" "+item.name+" added to Pre Treatment stock.");
+  }catch(error){
+    alert("Unable to add stock: "+error.message);
+  }
+}
+
+async function sendStock(){
+  const code=String(document.getElementById("sendItemCode")?.value||"").trim();
+  const qty=Number(document.getElementById("sendQty")?.value);
+  const remarks=String(document.getElementById("sendRemarks")?.value||"").trim();
+  const item=ITEMS.find(x=>String(x.code).trim()===code);
+  const available=Number(stockData.preTreatment[code]||0);
+
+  if(!item){
+    alert("Please search and select an Item Code first.");
+    return;
+  }
+  if(!Number.isFinite(qty)||qty<=0){
+    alert("Please enter a valid Send Quantity.");
+    return;
+  }
+  if(qty>available){
+    alert("Insufficient Pre Treatment stock. Available: "+available);
+    return;
+  }
+
+  try{
+    await apiFetch("/api/stock/send",{
+      method:"POST",
+      body:{
+        itemCode:item.code,
+        itemName:item.name,
+        quantity:qty,
+        remarks:remarks
+      }
+    });
+
+    await loadServerData();
+
+    const qtyEl=document.getElementById("sendQty");
+    if(qtyEl) qtyEl.value="";
+    const remarksEl=document.getElementById("sendRemarks");
+    if(remarksEl) remarksEl.value="";
+
+    alert(qty+" "+item.name+" sent to Powder Coating.");
+  }catch(error){
+    alert("Unable to send stock: "+error.message);
+  }
+}
+
+async function completeStock(){
+  const code=String(document.getElementById("completeItemCode")?.value||"").trim();
+  const qty=Number(document.getElementById("completeQty")?.value);
+  const item=ITEMS.find(x=>String(x.code).trim()===code);
+  const available=getPowderBalanceQuantity(code);
+
+  if(!item){ alert("Please select an Item Code first."); return; }
+  if(!Number.isFinite(qty)||qty<=0){ alert("Please enter a valid quantity."); return; }
+  if(qty>available){ alert("Insufficient Powder Coating stock. Available: "+available); return; }
+
+  try{
+    await apiFetch("/api/stock/complete",{
+      method:"POST",
+      body:{itemCode:item.code,itemName:item.name,quantity:qty,remarks:""}
+    });
+    await loadServerData();
+    document.getElementById("completeQty").value="";
+    alert(qty+" "+item.name+" marked as completed.");
+  }catch(error){ alert("Unable to complete stock: "+error.message); }
+}
+
 function renderPreStock(){
   const search=(document.getElementById("preSearch")?.value||"").toLowerCase();
   const tbody=document.getElementById("preStockTable");tbody.innerHTML="";
