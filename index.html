@@ -118,6 +118,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
     <div class="cards">
       <div class="card" onclick="showPage('preAvailable',this)" style="cursor:pointer" title="Tap to view Pre Treatment Available Stock"><div class="card-icon">📦</div><div class="card-title">Pre Treatment Stock</div><div class="card-value" id="preTotal">0</div></div>
       <div class="card" onclick="showPage('sendStock',this)" style="cursor:pointer" title="Tap to view Send Stock"><div class="card-icon">📤</div><div class="card-title">Sent to Powder Coating</div><div class="card-value" id="preSent">0</div></div>
+      <div class="card" onclick="showPage('todayStock',this)" style="cursor:pointer" title="Tap to view Today's Stock"><div class="card-icon">📅</div><div class="card-title">Today's Stock</div><div class="card-value" id="preTodayStock">0</div></div>
       <div class="card" onclick="showPage('preAvailable',this)" style="cursor:pointer" title="Tap to view item list"><div class="card-icon">📊</div><div class="card-title">Item Master</div><div class="card-value" id="preItems">0</div></div>
       <div class="card" onclick="showPage('addNewItem',this)" style="cursor:pointer" title="Tap to add a new item code"><div class="card-icon">➕</div><div class="card-title">Add New Item Code</div><div class="card-value">+</div></div>
     </div>
@@ -130,6 +131,41 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
       <div class="form-group"><label>Item Name</label><input id="newItemName" type="text" placeholder="Enter item name"></div>
       <button class="primary-btn" onclick="addNewItem()">➕ Add New Item</button>
       <div id="newItemMessage" style="margin-top:12px;font-weight:600"></div>
+    </div>
+  </section>
+
+  <section class="page" id="todayStock">
+    <div class="panel">
+      <h2>📅 Today's Stock</h2>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
+        <button class="primary-btn" style="margin-top:0" onclick="showTodayStock('added')">➕ Added Stock</button>
+        <button class="primary-btn" style="margin-top:0;background:#16a34a" onclick="showTodayStock('sent')">📤 Powder Coating Sended Stock</button>
+      </div>
+      <div class="small-note">Select <b>Added Stock</b> to see stock added today, or <b>Powder Coating Sended Stock</b> to see stock sent to Powder Coating today.</div>
+    </div>
+
+    <div class="panel" id="todayAddedPanel" style="display:none">
+      <h2>➕ Today's Added Stock</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Date</th><th>Time</th></tr>
+          </thead>
+          <tbody id="todayAddedStockTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" id="todaySentPanel" style="display:none">
+      <h2>📤 Today's Powder Coating Sended Stock</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Date</th><th>Time</th><th>Status</th></tr>
+          </thead>
+          <tbody id="todaySentStockTable"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -408,7 +444,7 @@ function showPage(pageId,button){
   const page=document.getElementById(pageId);
   if(page)page.classList.add("active");
   const titles={
-    preDashboard:"Pre Treatment Dashboard",addNewItem:"Add New Item Code",addStock:"Add Stock",sendStock:"Send Stock",
+    preDashboard:"Pre Treatment Dashboard",todayStock:"Today's Stock",addNewItem:"Add New Item Code",addStock:"Add Stock",sendStock:"Send Stock",
     preAvailable:"Pre Treatment Available Stock",powderDashboard:"Powder Coating Dashboard",
     pendingReceipts:"Pending Receipts",receivedStock:"Received Stock",powderAvailable:"Powder Coating Balance Stock",
     completedStock:"Powder Coating Completed Stock"
@@ -417,6 +453,7 @@ function showPage(pageId,button){
   document.querySelectorAll(".menu button").forEach(b=>b.classList.remove("active"));
   if(button)button.classList.add("active");
   if(pageId==="powderAvailable") renderPowderStock();
+  if(pageId==="todayStock") renderTodayStock();
   if(pageId==="addStock") renderAddStockHistory();
   if(pageId==="sendStock") renderSendStockHistory();
   if(pageId==="preAvailable") renderPreStock();
@@ -836,6 +873,83 @@ async function completeStock(){
   }catch(error){ alert("Unable to complete stock: "+error.message); }
 }
 
+function isToday(value){
+  if(!value)return false;
+  const d=new Date(value);
+  const now=new Date();
+  return d.getFullYear()===now.getFullYear() &&
+    d.getMonth()===now.getMonth() &&
+    d.getDate()===now.getDate();
+}
+
+function renderTodayStock(){
+  renderTodayAddedStock();
+  renderTodaySentStock();
+}
+
+function showTodayStock(type){
+  const added=document.getElementById("todayAddedPanel");
+  const sent=document.getElementById("todaySentPanel");
+  if(added) added.style.display=type==="added" ? "block" : "none";
+  if(sent) sent.style.display=type==="sent" ? "block" : "none";
+
+  if(type==="added") renderTodayAddedStock();
+  if(type==="sent") renderTodaySentStock();
+}
+
+function renderTodayAddedStock(){
+  const tbody=document.getElementById("todayAddedStockTable");
+  if(!tbody)return;
+  tbody.innerHTML="";
+
+  const rows=transactions
+    .filter(t=>t && t.type==="ADD_STOCK" && isToday(t.createdAt))
+    .slice()
+    .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
+
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px">No stock added today</td></tr>';
+    return;
+  }
+
+  rows.forEach((r,i)=>{
+    const d=r.createdAt ? new Date(r.createdAt) : null;
+    const date=d ? d.toLocaleDateString() : String(r.date||"");
+    const time=d ? d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : String(r.time||"");
+    const row=document.createElement("tr");
+    row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(String(r.itemCode||""))+"</td><td>"+escapeHtml(String(r.itemName||""))+"</td><td>"+(Number(r.quantity)||0)+"</td><td>"+escapeHtml(date)+"</td><td>"+escapeHtml(time)+"</td>";
+    tbody.appendChild(row);
+  });
+}
+
+function renderTodaySentStock(){
+  const tbody=document.getElementById("todaySentStockTable");
+  if(!tbody)return;
+  tbody.innerHTML="";
+
+  const rows=transactions
+    .filter(t=>t && (t.type==="PENDING_RECEIPT" || t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER") && isToday(t.createdAt))
+    .slice()
+    .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
+
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px">No stock sent to Powder Coating today</td></tr>';
+    return;
+  }
+
+  rows.forEach((r,i)=>{
+    const d=r.createdAt ? new Date(r.createdAt) : null;
+    const date=d ? d.toLocaleDateString() : String(r.date||"");
+    const time=d ? d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : String(r.time||"");
+    const status=r.type==="PENDING_RECEIPT" ? "Pending Receipt" :
+      r.type==="RECEIVE_POWDER" ? "Accepted by Powder Coating" :
+      "Sent to Powder Coating";
+    const row=document.createElement("tr");
+    row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(String(r.itemCode||""))+"</td><td>"+escapeHtml(String(r.itemName||""))+"</td><td>"+(Number(r.quantity)||0)+"</td><td>"+escapeHtml(date)+"</td><td>"+escapeHtml(time)+"</td><td>"+escapeHtml(status)+"</td>";
+    tbody.appendChild(row);
+  });
+}
+
 function renderAddStockHistory(){
   const tbody=document.getElementById("addStockHistoryTable");
   if(!tbody)return;
@@ -1001,6 +1115,9 @@ function total(data){return Object.values(data).reduce((s,v)=>s+Number(v||0),0)}
 function refreshDashboard(){
   document.getElementById("preTotal").textContent=total(stockData.preTreatment);
   document.getElementById("preSent").textContent=transactions.filter(t=>t.type==="PENDING_RECEIPT" || t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").reduce((s,t)=>s+Number(t.quantity),0);
+  const today=new Date();
+  const todayStock=transactions.filter(t=>t && t.type==="ADD_STOCK" && t.createdAt && new Date(t.createdAt).toDateString()===today.toDateString()).reduce((s,t)=>s+Number(t.quantity||0),0);
+  document.getElementById("preTodayStock").textContent=todayStock;
   document.getElementById("preItems").textContent=ITEMS.length;
   document.getElementById("pendingReceiptsTotal").textContent=transactions.filter(t=>t.type==="PENDING_RECEIPT").reduce((s,t)=>s+Number(t.quantity),0);
   document.getElementById("powderReceived").textContent=transactions.filter(t=>t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").reduce((s,t)=>s+Number(t.quantity),0);
