@@ -489,8 +489,7 @@ app.post("/api/stock/accept-receipt", auth, async (req, res) => {
         id,
         item_code,
         item_name,
-        quantity,
-        remarks
+        quantity
       FROM transactions
       WHERE id = $1
         AND type = 'PENDING_RECEIPT'
@@ -720,4 +719,127 @@ app.post("/api/stock/complete", auth, async (req, res) => {
 
     const completedResult = await client.query(
       `
-      SELECT COALESCE(SUM(quantity
+      SELECT COALESCE(SUM(quantity), 0) AS total
+      FROM completed_stock
+      WHERE item_code = $1
+      `,
+      [code]
+    );
+
+    const editedResult = await client.query(
+      `
+      SELECT COALESCE(SUM(quantity), 0) AS total
+      FROM transactions
+      WHERE item_code = $1
+        AND type = 'EDIT_POWDER_STOCK'
+      `,
+      [code]
+    );
+
+    const received =
+      Number(receivedResult.rows[0]?.total || 0);
+
+    const completed =
+      Number(completedResult.rows[0]?.total || 0);
+
+    const edited =
+      Number(editedResult.rows[0]?.total || 0);
+
+    const balance = Math.max(
+      0,
+      received - completed + edited
+    );
+
+    if (qty > balance) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error:
+          "Insufficient powder coating balance. Available quantity: " +
+          balance
+      });
+    }
+
+    await client.query(
+      `
+      INSERT INTO completed_stock
+        (item_code, item_name, quantity, remarks)
+      VALUES
+        ($1, $2, $3, $4)
+      `,
+      [
+        code,
+        name,
+        qty,
+        remarks || ""
+      ]
+    );
+
+    await client.query(
+      `
+      INSERT INTO transactions
+        (item_code, item_name, quantity, type, remarks)
+      VALUES
+        ($1, $2, $3, 'POWDER_COMPLETED', $4)
+      `,
+      [
+        code,
+        name,
+        qty,
+        remarks || ""
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      balance: balance - qty
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
+/* =========================
+   FRONTEND
+========================= */
+
+app.get("/", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "index.html")
+  );
+});
+
+/* =========================
+   START SERVER
+========================= */
+
+initDatabase()
+  .then(() => {
+    app.listen(
+      PORT,
+      "0.0.0.0",
+      () => {
+        console.log(
+          "Server running on port " + PORT
+        );
+      }
+    );
+  })
+  .catch((error) => {
+    console.error(
+      "Database initialization failed:",
+      error
+    );
+
+    process.exit(1);
+  });
