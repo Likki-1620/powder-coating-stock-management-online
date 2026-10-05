@@ -43,6 +43,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 .primary-btn:hover{background:#1d4ed8}.success-btn{background:#16a34a}.success-btn:hover{background:#15803d}
 .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:680px}th,td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#f1f5f9;font-size:14px}
 .search{width:100%;padding:12px;border:1px solid #ccd3da;border-radius:8px;margin-bottom:15px;font-size:15px}
+.search{box-sizing:border-box;background:#fff}
+.search:focus,.form-group input[type="search"]:focus{outline:2px solid #93c5fd;outline-offset:1px;border-color:#2563eb}
 .badge{padding:5px 9px;border-radius:20px;font-size:12px;font-weight:bold}.badge-green{background:#dcfce7;color:#166534}.badge-yellow{background:#fef3c7;color:#92400e}
 .small-note{font-size:13px;color:#667085;margin-top:8px}
 .mobile-header{display:none}
@@ -134,8 +136,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
   <section class="page" id="addStock">
     <div class="panel"><h2>➕ Add Stock</h2>
       <div class="form-group" style="margin-bottom:14px">
-        <label>Search Item</label>
-        <input id="addItemSearch" autocomplete="off" placeholder="Enter Item Code or Item Name" oninput="searchAddItem()">
+        <label>🔎 Search by Item Code or Item Name</label>
+        <input type="search" id="addItemSearch" autocomplete="off" placeholder="🔎 Type Item Code or Item Name" oninput="searchAddItem()">
         <div id="addItemSearchResults" class="item-search-results"></div>
         <datalist id="addItemSearchList"></datalist>
       </div>
@@ -146,13 +148,16 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
       </div>
       <button class="primary-btn" onclick="addStock()">➕ Add Stock</button>
     </div>
+    <div class="panel"><h2>📋 Add Stock History</h2>
+      <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Date</th><th>Time</th><th>Remarks</th></tr></thead><tbody id="addStockHistoryTable"></tbody></table></div>
+    </div>
   </section>
 
   <section class="page" id="sendStock">
     <div class="panel"><h2>📤 Send Stock to Powder Coating</h2>
       <div class="form-group" style="margin-bottom:14px">
-        <label>Search Item</label>
-        <input id="sendItemSearch" autocomplete="off" placeholder="Enter Item Code or Item Name" oninput="searchSendItem()">
+        <label>🔎 Search by Item Code or Item Name</label>
+        <input type="search" id="sendItemSearch" autocomplete="off" placeholder="🔎 Type Item Code or Item Name" oninput="searchSendItem()">
         <div id="sendItemSearchResults" class="item-search-results"></div>
       </div>
       <div class="form-grid">
@@ -165,11 +170,15 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
       <button class="primary-btn" onclick="sendStock()">📤 Send to Powder Coating</button>
       <div class="small-note">Search by Item Code or Item Name → tap the correct item → Item Code, Item Name and Balance Quantity will appear automatically.</div>
     </div>
+    <div class="panel"><h2>📋 Send Stock History</h2>
+      <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Date</th><th>Time</th><th>Status</th><th>Remarks</th></tr></thead><tbody id="sendStockHistoryTable"></tbody></table></div>
+    </div>
   </section>
 
   <section class="page" id="preAvailable">
     <div class="panel"><h2>📦 Pre Treatment Available Stock</h2>
-      <input class="search" id="preSearch" oninput="renderPreStock()" placeholder="Search Item Code or Item Name...">
+      <input class="search" id="preSearch" type="search" autocomplete="off" oninput="renderPreStock()" placeholder="🔎 Type Item Code or Item Name...">
+      <div class="small-note">Search works instantly by Item Code or Item Name.</div>
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Available Quantity</th></tr></thead><tbody id="preStockTable"></tbody></table></div>
     </div>
   </section>
@@ -186,7 +195,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 
   <section class="page" id="pendingReceipts">
     <div class="panel"><h2>⏳ Pending Receipts</h2>
-      <input class="search" id="pendingSearch" oninput="renderPendingReceipts()" placeholder="Search Item Code or Item Name...">
+      <input class="search" id="pendingSearch" type="search" autocomplete="off" oninput="renderPendingReceipts()" placeholder="🔎 Type Item Code or Item Name...">
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Sent Date</th><th>Sent Time</th><th>Remarks</th><th>Action</th></tr></thead><tbody id="pendingReceiptsTable"></tbody></table></div>
       <div class="small-note">Stock sent by Pre Treatment stays here until Powder Coating accepts it. Only after acceptance will it be added to Powder Coating Balance Stock.</div>
     </div>
@@ -194,14 +203,15 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 
   <section class="page" id="receivedStock">
     <div class="panel"><h2>📥 Received Stock from Pre Treatment</h2>
-      <input class="search" id="receivedSearch" oninput="renderReceivedStock()" placeholder="Search Item Code or Item Name...">
+      <input class="search" id="receivedSearch" type="search" autocomplete="off" oninput="renderReceivedStock()" placeholder="🔎 Type Item Code or Item Name...">
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Received Date</th><th>Received Time</th></tr></thead><tbody id="receivedTable"></tbody></table></div>
     </div>
   </section>
 
   <section class="page" id="powderAvailable">
     <div class="panel"><h2>📦 Powder Coating Balance Stock</h2>
-      <input class="search" id="powderSearch" oninput="renderPowderStock()" placeholder="Search Item Code or Item Name...">
+      <input class="search" id="powderSearch" type="search" autocomplete="off" oninput="renderPowderStock()" placeholder="🔎 Type Item Code or Item Name...">
+      <div class="small-note">Search works instantly by Item Code or Item Name.</div>
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Balance Quantity</th></tr></thead><tbody id="powderStockTable"></tbody></table></div>
     </div>
   </section>
@@ -209,8 +219,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
   <section class="page" id="completedStock">
     <div class="panel"><h2>✅ Powder Coating Completed Stock</h2>
       <div class="form-group" style="margin-bottom:14px">
-        <label>Search Item</label>
-        <input id="completeItemSearch" autocomplete="off" placeholder="Enter Item Code or Item Name" oninput="searchCompleteItem()">
+        <label>🔎 Search by Item Code or Item Name</label>
+        <input type="search" id="completeItemSearch" autocomplete="off" placeholder="🔎 Type Item Code or Item Name" oninput="searchCompleteItem()">
         <div id="completeItemSearchResults" class="item-search-results"></div>
       </div>
       <div class="form-grid">
@@ -387,6 +397,8 @@ function showPage(pageId,button){
   document.querySelectorAll(".menu button").forEach(b=>b.classList.remove("active"));
   if(button)button.classList.add("active");
   if(pageId==="powderAvailable") renderPowderStock();
+  if(pageId==="addStock") renderAddStockHistory();
+  if(pageId==="sendStock") renderSendStockHistory();
   if(pageId==="preAvailable") renderPreStock();
   if(pageId==="pendingReceipts") renderPendingReceipts();
   if(pageId==="receivedStock") renderReceivedStock();
@@ -739,6 +751,39 @@ async function completeStock(){
   }catch(error){ alert("Unable to complete stock: "+error.message); }
 }
 
+function renderAddStockHistory(){
+  const tbody=document.getElementById("addStockHistoryTable");
+  if(!tbody)return;
+  tbody.innerHTML="";
+  const rows=transactions.filter(t=>t.type==="ADD_STOCK").slice().reverse();
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px">No Add Stock history</td></tr>';
+    return;
+  }
+  rows.forEach((r,i)=>{
+    const row=document.createElement("tr");
+    row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(String(r.itemCode||""))+"</td><td>"+escapeHtml(String(r.itemName||""))+"</td><td>"+(Number(r.quantity)||0)+"</td><td>"+escapeHtml(String(r.date||""))+"</td><td>"+escapeHtml(String(r.time||""))+"</td><td>"+escapeHtml(String(r.remarks||""))+"</td>";
+    tbody.appendChild(row);
+  });
+}
+
+function renderSendStockHistory(){
+  const tbody=document.getElementById("sendStockHistoryTable");
+  if(!tbody)return;
+  tbody.innerHTML="";
+  const rows=transactions.filter(t=>t.type==="PENDING_RECEIPT" || t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").slice().reverse();
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px">No Send Stock history</td></tr>';
+    return;
+  }
+  rows.forEach((r,i)=>{
+    const status=r.type==="PENDING_RECEIPT"?"Pending Receipt":r.type==="RECEIVE_POWDER"?"Accepted by Powder Coating":"Sent to Powder Coating";
+    const row=document.createElement("tr");
+    row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(String(r.itemCode||""))+"</td><td>"+escapeHtml(String(r.itemName||""))+"</td><td>"+(Number(r.quantity)||0)+"</td><td>"+escapeHtml(String(r.date||""))+"</td><td>"+escapeHtml(String(r.time||""))+"</td><td>"+escapeHtml(status)+"</td><td>"+escapeHtml(String(r.remarks||""))+"</td>";
+    tbody.appendChild(row);
+  });
+}
+
 function renderPreStock(){
   const search=(document.getElementById("preSearch")?.value||"").toLowerCase();
   const tbody=document.getElementById("preStockTable");tbody.innerHTML="";
@@ -879,6 +924,8 @@ function refreshDashboard(){
 function refreshAll(){
   syncPowderBalances();
   populateItemDropdowns();
+  renderAddStockHistory();
+  renderSendStockHistory();
   renderPreStock();
   renderPendingReceipts();
   renderReceivedStock();
