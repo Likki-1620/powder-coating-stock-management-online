@@ -100,6 +100,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 
   <div class="menu" id="powderMenu" style="display:none">
     <button onclick="showPage('powderDashboard',this)" class="active"><span class="menu-icon">🏠</span>Dashboard</button>
+    <button onclick="showPage('pendingReceipts',this)"><span class="menu-icon">⏳</span>Pending Receipts</button>
     <button onclick="showPage('receivedStock',this)"><span class="menu-icon">📥</span>Received Stock</button>
     <button onclick="showPage('completedStock',this)"><span class="menu-icon">✅</span>Powder Coating Completed Stock</button>
     <button onclick="showPage('powderAvailable',this)"><span class="menu-icon">📊</span>Balance Stock</button>
@@ -175,11 +176,20 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 
   <section class="page" id="powderDashboard">
     <div class="cards">
+      <div class="card" onclick="showPage('pendingReceipts',this)" style="cursor:pointer" title="Tap to view Pending Receipts"><div class="card-icon">⏳</div><div class="card-title">Pending Receipts</div><div class="card-value" id="pendingReceiptsTotal">0</div></div>
       <div class="card" onclick="showPage('receivedStock',this)" style="cursor:pointer" title="Tap to view Received Stock"><div class="card-icon">📥</div><div class="card-title">Received Stock</div><div class="card-value" id="powderReceived">0</div></div>
       <div class="card" onclick="showPage('powderAvailable',this)" style="cursor:pointer" title="Tap to view Balance Stock"><div class="card-icon">📊</div><div class="card-title">Balance Stock</div><div class="card-value" id="powderBalanceTotal">0</div></div>
       <div class="card" onclick="showPage('completedStock',this)" style="cursor:pointer" title="Tap to view Completed Stock"><div class="card-icon">✅</div><div class="card-title">Completed Stock</div><div class="card-value" id="powderCompleted">0</div></div>
     </div>
     <div class="panel"><h2>Powder Coating</h2><p>Stock sent by Pre Treatment automatically appears in <b>Received Stock</b>. After completed quantities are entered, the remaining quantity appears in <b>Balance Stock</b>.</p></div>
+  </section>
+
+  <section class="page" id="pendingReceipts">
+    <div class="panel"><h2>⏳ Pending Receipts</h2>
+      <input class="search" id="pendingSearch" oninput="renderPendingReceipts()" placeholder="Search Item Code or Item Name...">
+      <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Sent Date</th><th>Sent Time</th><th>Remarks</th><th>Action</th></tr></thead><tbody id="pendingReceiptsTable"></tbody></table></div>
+      <div class="small-note">Stock sent by Pre Treatment stays here until Powder Coating accepts it. Only after acceptance will it be added to Powder Coating Balance Stock.</div>
+    </div>
   </section>
 
   <section class="page" id="receivedStock">
@@ -370,7 +380,7 @@ function showPage(pageId,button){
   const titles={
     preDashboard:"Pre Treatment Dashboard",addNewItem:"Add New Item Code",addStock:"Add Stock",sendStock:"Send Stock",
     preAvailable:"Pre Treatment Available Stock",powderDashboard:"Powder Coating Dashboard",
-    receivedStock:"Received Stock",powderAvailable:"Powder Coating Balance Stock",
+    pendingReceipts:"Pending Receipts",receivedStock:"Received Stock",powderAvailable:"Powder Coating Balance Stock",
     completedStock:"Powder Coating Completed Stock"
   };
   document.getElementById("pageTitle").textContent=titles[pageId]||"Dashboard";
@@ -378,6 +388,7 @@ function showPage(pageId,button){
   if(button)button.classList.add("active");
   if(pageId==="powderAvailable") renderPowderStock();
   if(pageId==="preAvailable") renderPreStock();
+  if(pageId==="pendingReceipts") renderPendingReceipts();
   if(pageId==="receivedStock") renderReceivedStock();
   if(pageId==="completedStock") renderCompleted();
   if(window.innerWidth<=750)document.getElementById("sidebar").classList.remove("open");
@@ -742,21 +753,57 @@ function renderPreStock(){
   });
 }
 
+function renderPendingReceipts(){
+  const search=(document.getElementById("pendingSearch")?.value||"").toLowerCase();
+  const tbody=document.getElementById("pendingReceiptsTable");
+  if(!tbody)return;
+  tbody.innerHTML="";
+  let sl=1;
+  const rows=transactions.filter(t=>t.type==="PENDING_RECEIPT").filter(r=>
+    String(r.itemCode||"").toLowerCase().includes(search)||
+    String(r.itemName||"").toLowerCase().includes(search)
+  );
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px">No pending receipts</td></tr>';
+    return;
+  }
+  rows.slice().reverse().forEach(r=>{
+    const row=document.createElement("tr");
+    row.innerHTML="<td>"+(sl++)+"</td><td>"+escapeHtml(String(r.itemCode||""))+"</td><td>"+escapeHtml(String(r.itemName||""))+"</td><td>"+(Number(r.quantity)||0)+"</td><td>"+escapeHtml(String(r.date||""))+"</td><td>"+escapeHtml(String(r.time||""))+"</td><td>"+escapeHtml(String(r.remarks||""))+"</td><td><button class='primary-btn' style='padding:8px 12px;margin:0' onclick='acceptReceipt("+Number(r.id)+")'>✅ Accept Stock</button></td>";
+    tbody.appendChild(row);
+  });
+}
+
+async function acceptReceipt(transactionId){
+  const id=Number(transactionId);
+  if(!Number.isInteger(id)||id<=0){ alert("Invalid pending receipt."); return; }
+  try{
+    await apiFetch("/api/stock/accept-receipt",{
+      method:"POST",
+      body:{transactionId:id}
+    });
+    await loadServerData();
+    alert("Stock accepted. It is now added to Powder Coating Balance Stock.");
+  }catch(error){
+    alert("Unable to accept stock: "+error.message);
+  }
+}
+
 function renderReceivedStock(){
   const search=(document.getElementById("receivedSearch")?.value||"").toLowerCase();
   const tbody=document.getElementById("receivedTable");tbody.innerHTML="";
   let sl=1;
-  transactions.filter(t=>t.type==="SEND_TO_POWDER").slice().reverse().forEach(r=>{
-    if(!r.itemCode.toLowerCase().includes(search)&&!r.itemName.toLowerCase().includes(search))return;
+  transactions.filter(t=>t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").slice().reverse().forEach(r=>{
+    if(!String(r.itemCode||"").toLowerCase().includes(search)&&!String(r.itemName||"").toLowerCase().includes(search))return;
     const row=document.createElement("tr");
-    row.innerHTML="<td>"+sl+++"</td><td>"+escapeHtml(r.itemCode)+"</td><td>"+escapeHtml(r.itemName)+"</td><td>"+r.quantity+"</td><td>"+r.date+"</td><td>"+r.time+"</td>";
+    row.innerHTML="<td>"+sl++ +"</td><td>"+escapeHtml(String(r.itemCode||""))+"</td><td>"+escapeHtml(String(r.itemName||""))+"</td><td>"+(Number(r.quantity)||0)+"</td><td>"+escapeHtml(String(r.date||""))+"</td><td>"+escapeHtml(String(r.time||""))+"</td>";
     tbody.appendChild(row);
   });
 }
 
 function getPowderReceivedQuantity(code){
   return transactions
-    .filter(t=>t && t.type==="SEND_TO_POWDER" && String(t.itemCode)===String(code))
+    .filter(t=>t && (t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER") && String(t.itemCode)===String(code))
     .reduce((sum,t)=>sum+(Number(t.quantity)||0),0);
 }
 
@@ -770,7 +817,7 @@ function getPowderBalanceQuantity(code){
   // Balance is always Received Stock minus Powder Coating Completed Stock.
   const received=getPowderReceivedQuantity(code);
   const done=getPowderCompletedQuantity(code);
-  const hasHistory=transactions.some(t=>t && t.type==="SEND_TO_POWDER") || completed.length>0;
+  const hasHistory=transactions.some(t=>t && (t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER")) || completed.length>0;
   if(hasHistory) return Math.max(0, received-done);
   // Keep compatibility with older saved data.
   return Math.max(0,Number(stockData.powderCoating?.[code]||0));
@@ -820,9 +867,10 @@ function total(data){return Object.values(data).reduce((s,v)=>s+Number(v||0),0)}
 
 function refreshDashboard(){
   document.getElementById("preTotal").textContent=total(stockData.preTreatment);
-  document.getElementById("preSent").textContent=transactions.filter(t=>t.type==="SEND_TO_POWDER").reduce((s,t)=>s+Number(t.quantity),0);
+  document.getElementById("preSent").textContent=transactions.filter(t=>t.type==="PENDING_RECEIPT" || t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").reduce((s,t)=>s+Number(t.quantity),0);
   document.getElementById("preItems").textContent=ITEMS.length;
-  document.getElementById("powderReceived").textContent=transactions.filter(t=>t.type==="SEND_TO_POWDER").reduce((s,t)=>s+Number(t.quantity),0);
+  document.getElementById("pendingReceiptsTotal").textContent=transactions.filter(t=>t.type==="PENDING_RECEIPT").reduce((s,t)=>s+Number(t.quantity),0);
+  document.getElementById("powderReceived").textContent=transactions.filter(t=>t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").reduce((s,t)=>s+Number(t.quantity),0);
   const powderBalance=ITEMS.reduce((sum,item)=>sum+getPowderBalanceQuantity(item.code),0);
   document.getElementById("powderBalanceTotal").textContent=powderBalance;
   document.getElementById("powderCompleted").textContent=completed.reduce((s,t)=>s+Number(t.quantity),0);
@@ -832,6 +880,7 @@ function refreshAll(){
   syncPowderBalances();
   populateItemDropdowns();
   renderPreStock();
+  renderPendingReceipts();
   renderReceivedStock();
   renderPowderStock();
   renderCompleted();
