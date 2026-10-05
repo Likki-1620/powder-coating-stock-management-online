@@ -755,7 +755,7 @@ function renderAddStockHistory(){
   const tbody=document.getElementById("addStockHistoryTable");
   if(!tbody)return;
   tbody.innerHTML="";
-  const rows=transactions.filter(t=>t.type==="ADD_STOCK").slice().reverse();
+  const rows=transactions.filter(t=>t.type==="ADD_STOCK").slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
   if(!rows.length){
     tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px">No Add Stock history</td></tr>';
     return;
@@ -771,7 +771,7 @@ function renderSendStockHistory(){
   const tbody=document.getElementById("sendStockHistoryTable");
   if(!tbody)return;
   tbody.innerHTML="";
-  const rows=transactions.filter(t=>t.type==="PENDING_RECEIPT" || t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").slice().reverse();
+  const rows=transactions.filter(t=>t.type==="PENDING_RECEIPT" || t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
   if(!rows.length){
     tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px">No Send Stock history</td></tr>';
     return;
@@ -812,7 +812,7 @@ function renderPendingReceipts(){
     tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px">No pending receipts</td></tr>';
     return;
   }
-  rows.slice().reverse().forEach(r=>{
+  rows.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0)).forEach(r=>{
     const row=document.createElement("tr");
     row.innerHTML="<td>"+(sl++)+"</td><td>"+escapeHtml(String(r.itemCode||""))+"</td><td>"+escapeHtml(String(r.itemName||""))+"</td><td>"+(Number(r.quantity)||0)+"</td><td>"+escapeHtml(String(r.date||""))+"</td><td>"+escapeHtml(String(r.time||""))+"</td><td>"+escapeHtml(String(r.remarks||""))+"</td><td><button class='primary-btn' style='padding:8px 12px;margin:0' onclick='acceptReceipt("+Number(r.id)+")'>✅ Accept Stock</button></td>";
     tbody.appendChild(row);
@@ -838,7 +838,7 @@ function renderReceivedStock(){
   const search=(document.getElementById("receivedSearch")?.value||"").toLowerCase();
   const tbody=document.getElementById("receivedTable");tbody.innerHTML="";
   let sl=1;
-  transactions.filter(t=>t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").slice().reverse().forEach(r=>{
+  transactions.filter(t=>t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0)).forEach(r=>{
     if(!String(r.itemCode||"").toLowerCase().includes(search)&&!String(r.itemName||"").toLowerCase().includes(search))return;
     const row=document.createElement("tr");
     row.innerHTML="<td>"+sl++ +"</td><td>"+escapeHtml(String(r.itemCode||""))+"</td><td>"+escapeHtml(String(r.itemName||""))+"</td><td>"+(Number(r.quantity)||0)+"</td><td>"+escapeHtml(String(r.date||""))+"</td><td>"+escapeHtml(String(r.time||""))+"</td>";
@@ -901,7 +901,7 @@ function renderPowderStock(){
 
 function renderCompleted(){
   const tbody=document.getElementById("completedTable");tbody.innerHTML="";
-  completed.slice().reverse().forEach((r,i)=>{
+  completed.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0)).forEach((r,i)=>{
     const row=document.createElement("tr");
     row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(r.itemCode)+"</td><td>"+escapeHtml(r.itemName)+"</td><td>"+r.quantity+"</td><td>"+r.date+"</td><td>"+r.time+"</td>";
     tbody.appendChild(row);
