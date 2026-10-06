@@ -452,6 +452,7 @@ function downloadBalanceExcel(){
       <button class="primary-btn" onclick="addStock()">➕ Add Stock</button>
     </div>
     <div class="panel"><h2>📋 Add Stock History</h2>
+      <input class="search" id="addStockHistorySearch" type="search" autocomplete="off" oninput="renderAddStockHistory()" placeholder="🔎 Type Item Code or Item Name...">
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Date</th><th>Time</th><th>Remarks</th></tr></thead><tbody id="addStockHistoryTable"></tbody></table></div>
     </div>
   </section>
@@ -474,6 +475,7 @@ function downloadBalanceExcel(){
       <div class="small-note">Search by Item Code or Item Name → tap the correct item → Item Code, Item Name and Balance Quantity will appear automatically.</div>
     </div>
     <div class="panel"><h2>📋 Send Stock History</h2>
+      <input class="search" id="sendStockHistorySearch" type="search" autocomplete="off" oninput="renderSendStockHistory()" placeholder="🔎 Type Item Code or Item Name...">
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Date</th><th>Time</th><th>Status</th><th>Remarks</th></tr></thead><tbody id="sendStockHistoryTable"></tbody></table></div>
     </div>
   </section>
@@ -556,6 +558,7 @@ function downloadBalanceExcel(){
       <div class="small-note">Search by Item Code or Item Name → tap the correct item → Item Code, Item Name and Balance Quantity will appear automatically.</div>
     </div>
     <div class="panel"><h2>Completed Stock History</h2>
+      <input class="search" id="completedHistorySearch" type="search" autocomplete="off" oninput="renderCompleted()" placeholder="🔎 Type Item Code or Item Name...">
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Date</th><th>Time</th></tr></thead><tbody id="completedTable"></tbody></table></div>
     </div>
   </section>
@@ -1234,7 +1237,11 @@ function renderAddStockHistory(){
   const tbody=document.getElementById("addStockHistoryTable");
   if(!tbody)return;
   tbody.innerHTML="";
-  const rows=transactions.filter(t=>t.type==="ADD_STOCK").slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
+  const search=(document.getElementById("addStockHistorySearch")?.value||"").trim().toLowerCase();
+  const rows=transactions.filter(t=>t.type==="ADD_STOCK").filter(r=>
+    String(r.itemCode||"").toLowerCase().includes(search)||
+    String(r.itemName||"").toLowerCase().includes(search)
+  ).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
   if(!rows.length){
     tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px">No Add Stock history</td></tr>';
     return;
@@ -1250,7 +1257,11 @@ function renderSendStockHistory(){
   const tbody=document.getElementById("sendStockHistoryTable");
   if(!tbody)return;
   tbody.innerHTML="";
-  const rows=transactions.filter(t=>t.type==="PENDING_RECEIPT" || t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
+  const search=(document.getElementById("sendStockHistorySearch")?.value||"").trim().toLowerCase();
+  const rows=transactions.filter(t=>t.type==="PENDING_RECEIPT" || t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER").filter(r=>
+    String(r.itemCode||"").toLowerCase().includes(search)||
+    String(r.itemName||"").toLowerCase().includes(search)
+  ).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
   if(!rows.length){
     tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px">No Send Stock history</td></tr>';
     return;
@@ -1382,10 +1393,21 @@ function renderPowderStock(){
 }
 
 function renderCompleted(){
-  const tbody=document.getElementById("completedTable");tbody.innerHTML="";
-  completed.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0)).forEach((r,i)=>{
+  const tbody=document.getElementById("completedTable");
+  if(!tbody)return;
+  tbody.innerHTML="";
+  const search=(document.getElementById("completedHistorySearch")?.value||"").trim().toLowerCase();
+  const rows=completed.filter(r=>
+    String(r.itemCode||"").toLowerCase().includes(search)||
+    String(r.itemName||"").toLowerCase().includes(search)
+  ).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px">No completed stock history found</td></tr>';
+    return;
+  }
+  rows.forEach((r,i)=>{
     const row=document.createElement("tr");
-    row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(r.itemCode)+"</td><td>"+escapeHtml(r.itemName)+"</td><td>"+r.quantity+"</td><td>"+r.date+"</td><td>"+r.time+"</td>";
+    row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(String(r.itemCode||""))+"</td><td>"+escapeHtml(String(r.itemName||""))+"</td><td>"+(Number(r.quantity)||0)+"</td><td>"+escapeHtml(String(r.date||""))+"</td><td>"+escapeHtml(String(r.time||""))+"</td>";
     tbody.appendChild(row);
   });
 }
