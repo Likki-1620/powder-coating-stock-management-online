@@ -91,11 +91,9 @@ function auth(req, res, next) {
     }
 
     const token = header.substring(7);
-
     const decoded = jwt.verify(token, JWT_SECRET);
 
     req.user = decoded;
-
     next();
   } catch (error) {
     return res.status(401).json({
@@ -282,7 +280,12 @@ app.post("/api/stock/add", auth, async (req, res) => {
     const quantity = Number(req.body?.quantity);
     const remarks = String(req.body?.remarks || "").trim();
 
-    if (!itemCode || !itemName || !Number.isFinite(quantity) || quantity <= 0) {
+    if (
+      !itemCode ||
+      !itemName ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0
+    ) {
       return res.status(400).json({
         error: "Invalid stock details"
       });
@@ -312,7 +315,8 @@ app.post("/api/stock/add", auth, async (req, res) => {
       ON CONFLICT (item_code)
       DO UPDATE SET
         item_name = EXCLUDED.item_name,
-        pre_treatment = stock.pre_treatment + EXCLUDED.pre_treatment
+        pre_treatment =
+          stock.pre_treatment + EXCLUDED.pre_treatment
       `,
       [itemCode, itemName, quantity]
     );
@@ -338,6 +342,7 @@ app.post("/api/stock/add", auth, async (req, res) => {
     });
   } catch (error) {
     await client.query("ROLLBACK");
+
     console.error(error);
 
     res.status(500).json({
@@ -368,7 +373,12 @@ app.post("/api/stock/send", auth, async (req, res) => {
     const quantity = Number(req.body?.quantity);
     const remarks = String(req.body?.remarks || "").trim();
 
-    if (!itemCode || !itemName || !Number.isFinite(quantity) || quantity <= 0) {
+    if (
+      !itemCode ||
+      !itemName ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0
+    ) {
       return res.status(400).json({
         error: "Invalid stock details"
       });
@@ -394,7 +404,9 @@ app.post("/api/stock/send", auth, async (req, res) => {
       });
     }
 
-    const available = Number(stockResult.rows[0].pre_treatment || 0);
+    const available = Number(
+      stockResult.rows[0].pre_treatment || 0
+    );
 
     if (quantity > available) {
       await client.query("ROLLBACK");
@@ -436,6 +448,7 @@ app.post("/api/stock/send", auth, async (req, res) => {
     });
   } catch (error) {
     await client.query("ROLLBACK");
+
     console.error(error);
 
     res.status(500).json({
@@ -663,6 +676,7 @@ app.post("/api/stock/receive", auth, async (req, res) => {
     });
   } catch (error) {
     await client.query("ROLLBACK");
+
     console.error(error);
 
     res.status(500).json({
@@ -692,7 +706,12 @@ app.post("/api/stock/complete", auth, async (req, res) => {
     const quantity = Number(req.body?.quantity);
     const remarks = String(req.body?.remarks || "").trim();
 
-    if (!itemCode || !itemName || !Number.isFinite(quantity) || quantity <= 0) {
+    if (
+      !itemCode ||
+      !itemName ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0
+    ) {
       return res.status(400).json({
         error: "Invalid stock details"
       });
@@ -718,7 +737,9 @@ app.post("/api/stock/complete", auth, async (req, res) => {
       });
     }
 
-    const available = Number(stockResult.rows[0].powder_coating || 0);
+    const available = Number(
+      stockResult.rows[0].powder_coating || 0
+    );
 
     if (quantity > available) {
       await client.query("ROLLBACK");
@@ -771,6 +792,7 @@ app.post("/api/stock/complete", auth, async (req, res) => {
     });
   } catch (error) {
     await client.query("ROLLBACK");
+
     console.error(error);
 
     res.status(500).json({
@@ -868,7 +890,7 @@ app.get("/api/health", async (req, res) => {
 
 app.use(express.static(__dirname));
 
-app.get("*", (req, res) => {
+app.use((req, res) => {
   res.sendFile(
     path.join(
       __dirname,
