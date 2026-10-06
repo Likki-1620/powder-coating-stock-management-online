@@ -41,7 +41,42 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 .item-search-results{margin-top:6px;border:1px solid #d7dce3;border-radius:10px;background:#fff;box-shadow:0 6px 16px rgba(0,0,0,.08);max-height:260px;overflow:auto;display:none;position:relative;z-index:20}.item-search-option{padding:12px 14px;border-bottom:1px solid #edf0f4;cursor:pointer}.item-search-option:last-child{border-bottom:none}.item-search-option:active,.item-search-option:hover{background:#eef5ff}.item-search-code{font-weight:700}.item-search-name{font-size:14px;color:#555;margin-top:3px}
 .primary-btn{margin-top:20px;padding:13px 22px;border:none;border-radius:9px;background:#2563eb;color:white;font-weight:bold;cursor:pointer}
 .primary-btn:hover{background:#1d4ed8}.success-btn{background:#16a34a}.success-btn:hover{background:#15803d}
-.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:680px}th,td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#f1f5f9;font-size:14px}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:680px;table-layout:auto}
+th,td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left}
+th{background:#f1f5f9;font-size:14px}
+
+/* Item Code is short, so keep it compact. Item Name can be long, so give it more space and wrap it. */
+.table-wrap table th:nth-child(2),
+.table-wrap table td:nth-child(2){
+  width:95px;
+  min-width:95px;
+  max-width:120px;
+  white-space:nowrap;
+}
+.table-wrap table th:nth-child(3),
+.table-wrap table td:nth-child(3){
+  width:300px;
+  min-width:280px;
+  max-width:420px;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+@media (max-width:700px){
+  .table-wrap table th:nth-child(2),
+  .table-wrap table td:nth-child(2){
+    width:85px;
+    min-width:85px;
+    max-width:100px;
+  }
+  .table-wrap table th:nth-child(3),
+  .table-wrap table td:nth-child(3){
+    width:240px;
+    min-width:220px;
+    max-width:320px;
+  }
+}
 .search{width:100%;padding:12px;border:1px solid #ccd3da;border-radius:8px;margin-bottom:15px;font-size:15px}
 .search{box-sizing:border-box;background:#fff}
 .search:focus,.form-group input[type="search"]:focus{outline:2px solid #93c5fd;outline-offset:1px;border-color:#2563eb}
