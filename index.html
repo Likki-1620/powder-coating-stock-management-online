@@ -228,9 +228,6 @@ function downloadBalancePDF(){
 function downloadBalanceExcel(){
   try{
     syncPowderBalances();
-
-    // Only positive balance items are taken for the download.
-    // Zero-balance items are intentionally left completely blank.
     const rows=(getBalanceDownloadRows()||[]).filter(r=>Number(r.qty)>0);
 
     if(!window.XLSX){
@@ -238,52 +235,11 @@ function downloadBalanceExcel(){
       return;
     }
 
-    const COLS=9;
-    const PAGE1_DATA_ROWS=22;
-    const PAGE2_DATA_ROWS=22;
-    const TOTAL_DATA_ROWS=PAGE1_DATA_ROWS+PAGE2_DATA_ROWS;
-
-    // Keep positive balances only. Every remaining row is blank.
-    const positiveRows=rows.map((r,i)=>({
-      sl:i+1,
-      name:String(r.name||""),
-      qty:Number(r.qty)||0
-    }));
-
-    const aoa=[
-      ["DOLPHIN DIE CAST (P) LTD","","","","","","","", ""],
-      ["POWDER COATING PLANNING SHEET","","","","","","","", ""],
-      ["DATE: "+getDownloadDate(),"","","","","","","", ""],
-      ["SL. NO","CASTING NAME","QTY","PT","PC","BAL","POWDER COATED","", ""],
-      ["","","","","","","CASTING NAME","QTY","REMARKS"]
-    ];
-
-    // Create exactly enough rows for two printable pages.
-    // Only positive balance records are written; zero records remain blank.
-    for(let i=0;i<TOTAL_DATA_ROWS;i++){
-      const r=positiveRows[i];
-      aoa.push(r ? [r.sl,r.name,r.qty,"","","","","",""] : ["","","","","","","","",""]);
-    }
-
-    const ws=XLSX.utils.aoa_to_sheet(aoa);
-
-    // Merged headings match the PDF-style layout.
-    ws["!merges"]=[
-      {s:{r:0,c:0},e:{r:0,c:8}},
-      {s:{r:1,c:0},e:{r:1,c:8}},
-      {s:{r:2,c:0},e:{r:2,c:8}},
-      {s:{r:3,c:0},e:{r:4,c:0}},
-      {s:{r:3,c:1},e:{r:4,c:1}},
-      {s:{r:3,c:2},e:{r:4,c:2}},
-      {s:{r:3,c:3},e:{r:4,c:3}},
-      {s:{r:3,c:4},e:{r:4,c:4}},
-      {s:{r:3,c:5},e:{r:4,c:5}},
-      {s:{r:3,c:6},e:{r:3,c:8}}
-    ];
-
-    ws["!cols"]=[
-      {wch:9},{wch:38},{wch:12},{wch:10},{wch:10},{wch:10},{wch:32},{wch:12},{wch:28}
-    ];
+    // The Excel file is deliberately made as TWO worksheets.
+    // This guarantees that Page 1 and Page 2 are both present in Excel.
+    // Only positive balance quantities are entered. Zero-balance items stay blank.
+    const PAGE_ROWS=22;
+    const positiveRows=rows.map((r,i)=>({sl:i+1,name:String(r.name||""),qty:Number(r.qty)||0}));
 
     const border={
       top:{style:"thin",color:{rgb:"000000"}},
@@ -291,105 +247,94 @@ function downloadBalanceExcel(){
       left:{style:"thin",color:{rgb:"000000"}},
       right:{style:"thin",color:{rgb:"000000"}}
     };
+    const titleStyle={font:{name:"Arial",sz:16,bold:true},alignment:{horizontal:"center",vertical:"center"}};
+    const subtitleStyle={font:{name:"Arial",sz:12,bold:true},alignment:{horizontal:"center",vertical:"center"}};
+    const dateStyle={font:{name:"Arial",sz:10,bold:true},alignment:{horizontal:"right",vertical:"center"}};
+    const mainHeaderStyle={font:{name:"Arial",sz:10,bold:true},fill:{fgColor:{rgb:"D9E2F3"}},border:border,alignment:{horizontal:"center",vertical:"center",wrapText:true}};
+    const subHeaderStyle={font:{name:"Arial",sz:10,bold:true},fill:{fgColor:{rgb:"E2F0D9"}},border:border,alignment:{horizontal:"center",vertical:"center",wrapText:true}};
+    const centerStyle={font:{name:"Arial",sz:10},border:border,alignment:{horizontal:"center",vertical:"center",wrapText:true}};
+    const leftStyle={font:{name:"Arial",sz:10},border:border,alignment:{horizontal:"left",vertical:"center",wrapText:true}};
 
-    const titleStyle={
-      font:{name:"Arial",sz:16,bold:true},
-      alignment:{horizontal:"center",vertical:"center"}
-    };
-    const subtitleStyle={
-      font:{name:"Arial",sz:12,bold:true},
-      alignment:{horizontal:"center",vertical:"center"}
-    };
-    const dateStyle={
-      font:{name:"Arial",sz:10,bold:true},
-      alignment:{horizontal:"right",vertical:"center"}
-    };
-    const mainHeaderStyle={
-      font:{name:"Arial",sz:10,bold:true},
-      fill:{fgColor:{rgb:"D9E2F3"}},
-      border:border,
-      alignment:{horizontal:"center",vertical:"center",wrapText:true}
-    };
-    const subHeaderStyle={
-      font:{name:"Arial",sz:10,bold:true},
-      fill:{fgColor:{rgb:"E2F0D9"}},
-      border:border,
-      alignment:{horizontal:"center",vertical:"center",wrapText:true}
-    };
-    const centerStyle={
-      font:{name:"Arial",sz:10},
-      border:border,
-      alignment:{horizontal:"center",vertical:"center",wrapText:true}
-    };
-    const leftStyle={
-      font:{name:"Arial",sz:10},
-      border:border,
-      alignment:{horizontal:"left",vertical:"center",wrapText:true}
-    };
+    function makePageSheet(pageNo, startIndex){
+      const aoa=[
+        ["DOLPHIN DIE CAST (P) LTD","","","","","","","", ""],
+        ["POWDER COATING PLANNING SHEET","","","","","","","", ""],
+        ["DATE: "+getDownloadDate(),"","","","","","","", ""],
+        ["SL. NO","CASTING NAME","QTY","PT","PC","BAL","POWDER COATED","", ""],
+        ["","","","","","","CASTING NAME","QTY","REMARKS"]
+      ];
 
-    ws["A1"].s=titleStyle;
-    ws["A2"].s=subtitleStyle;
-    ws["A3"].s=dateStyle;
-
-    for(let c=0;c<COLS;c++){
-      const a=XLSX.utils.encode_cell({r:3,c:c});
-      if(!ws[a]) ws[a]={v:"",t:"s"};
-      ws[a].s=mainHeaderStyle;
-    }
-    for(let c=6;c<COLS;c++){
-      const a=XLSX.utils.encode_cell({r:4,c:c});
-      if(!ws[a]) ws[a]={v:"",t:"s"};
-      ws[a].s=subHeaderStyle;
-    }
-
-    // All data rows have borders/alignment. Blank rows stay visually empty
-    // except for the grid, so zero-balance items are never entered.
-    for(let r=5;r<aoa.length;r++){
-      ws["!rows"]=ws["!rows"]||[];
-      ws["!rows"][r]={hpt:21};
-      for(let c=0;c<COLS;c++){
-        const addr=XLSX.utils.encode_cell({r:r,c:c});
-        if(!ws[addr]) ws[addr]={v:"",t:"s"};
-        ws[addr].s=(c===1||c===6||c===8)?leftStyle:centerStyle;
+      // Always create all 22 rows on both pages.
+      // Missing/zero items remain completely blank.
+      for(let i=0;i<PAGE_ROWS;i++){
+        const r=positiveRows[startIndex+i];
+        aoa.push(r ? [r.sl,r.name,r.qty,"","","","","",""] : ["","","","","","","","",""]);
       }
+
+      // Page 2 is intentionally created even when there are no more balance items.
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+
+      ws["!merges"]=[
+        {s:{r:0,c:0},e:{r:0,c:8}},
+        {s:{r:1,c:0},e:{r:1,c:8}},
+        {s:{r:2,c:0},e:{r:2,c:8}},
+        {s:{r:3,c:0},e:{r:4,c:0}},
+        {s:{r:3,c:1},e:{r:4,c:1}},
+        {s:{r:3,c:2},e:{r:4,c:2}},
+        {s:{r:3,c:3},e:{r:4,c:3}},
+        {s:{r:3,c:4},e:{r:4,c:4}},
+        {s:{r:3,c:5},e:{r:4,c:5}},
+        {s:{r:3,c:6},e:{r:3,c:8}}
+      ];
+
+      ws["!cols"]=[
+        {wch:9},{wch:38},{wch:12},{wch:10},{wch:10},{wch:10},{wch:32},{wch:12},{wch:28}
+      ];
+      ws["!rows"]=[];
+      ws["!rows"][0]={hpt:28};
+      ws["!rows"][1]={hpt:22};
+      ws["!rows"][2]={hpt:20};
+      ws["!rows"][3]={hpt:26};
+      ws["!rows"][4]={hpt:24};
+
+      ws["A1"].s=titleStyle;
+      ws["A2"].s=subtitleStyle;
+      ws["A3"].s=dateStyle;
+
+      for(let c=0;c<9;c++){
+        const a=XLSX.utils.encode_cell({r:3,c:c});
+        if(!ws[a]) ws[a]={v:"",t:"s"};
+        ws[a].s=mainHeaderStyle;
+      }
+      for(let c=6;c<9;c++){
+        const a=XLSX.utils.encode_cell({r:4,c:c});
+        if(!ws[a]) ws[a]={v:"",t:"s"};
+        ws[a].s=subHeaderStyle;
+      }
+
+      for(let r=5;r<aoa.length;r++){
+        ws["!rows"][r]={hpt:21};
+        for(let c=0;c<9;c++){
+          const addr=XLSX.utils.encode_cell({r:r,c:c});
+          if(!ws[addr]) ws[addr]={v:"",t:"s"};
+          ws[addr].s=(c===1||c===6||c===8)?leftStyle:centerStyle;
+        }
+      }
+
+      ws["!pageSetup"]={orientation:"landscape",paperSize:"9",fitToWidth:1,fitToHeight:1};
+      ws["!margins"]={left:0.25,right:0.25,top:0.45,bottom:0.45,header:0.2,footer:0.2};
+      ws["!printArea"]="A1:I"+aoa.length;
+      ws["!sheetPr"]={pageSetUpPr:{fitToPage:true,autoPageBreaks:false}};
+      ws["!printTitles"]={rows:{from:3,to:4}};
+      ws["!views"]=[{showGridLines:false}];
+      return ws;
     }
-
-    ws["!rows"]=ws["!rows"]||[];
-    ws["!rows"][0]={hpt:28};
-    ws["!rows"][1]={hpt:22};
-    ws["!rows"][2]={hpt:20};
-    ws["!rows"][3]={hpt:26};
-    ws["!rows"][4]={hpt:24};
-
-    // Explicit print setup: landscape, one page wide, and a hard page break
-    // after the first page's 22 data rows. This makes page 2 appear even when
-    // page 1 has only a few positive balance items.
-    ws["!pageSetup"]={
-      orientation:"landscape",
-      paperSize:"9",
-      fitToWidth:1,
-      fitToHeight:0,
-      scale:100
-    };
-    ws["!margins"]={left:0.25,right:0.25,top:0.45,bottom:0.45,header:0.2,footer:0.2};
-    ws["!printArea"]="A1:I"+(aoa.length);
-
-    // Page 2 starts after header + PAGE1_DATA_ROWS rows.
-    // Excel row numbers are 1-based, while the worksheet indexes above are 0-based.
-    ws["!rowBreaks"]=[{id:5+PAGE1_DATA_ROWS}];
-
-    // Repeat the two-row table header when Excel prints another page where supported.
-    ws["!printTitles"]={rows:{from:3,to:4}};
 
     const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,"Balance Stock");
+    XLSX.utils.book_append_sheet(wb,makePageSheet(1,0),"Page 1 - Balance Stock");
+    XLSX.utils.book_append_sheet(wb,makePageSheet(2,PAGE_ROWS),"Page 2 - Balance Stock");
 
-    XLSX.writeFile(
-      wb,
-      "Powder_Coating_Balance_Stock_"+getDownloadFileDate()+".xlsx",
-      {bookType:"xlsx",cellStyles:true}
-    );
-
+    XLSX.writeFile(wb,"Powder_Coating_Balance_Stock_"+getDownloadFileDate()+".xlsx",{bookType:"xlsx",cellStyles:true});
     closeDownloadOptions();
   }catch(error){
     console.error(error);
