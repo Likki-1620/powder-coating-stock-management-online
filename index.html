@@ -107,118 +107,159 @@ function closeDownloadOnBackdrop(event){
 function downloadBalancePDF(){
   try{
     syncPowderBalances();
+
+    // Only items with a positive Powder Coating balance are downloaded.
     const rows=getBalanceDownloadRows();
+
     if(!rows.length){
       alert("There are no Powder Coating balance items greater than 0 to download.");
       return;
     }
+
     if(!window.jspdf || !window.jspdf.jsPDF){
       alert("PDF library could not be loaded. Please check your internet connection and try again.");
       return;
     }
 
     const {jsPDF}=window.jspdf;
-    const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+    const doc=new jsPDF({
+      orientation:"landscape",
+      unit:"mm",
+      format:"a4"
+    });
+
     const pageWidth=doc.internal.pageSize.getWidth();
+    const pageHeight=doc.internal.pageSize.getHeight();
     const margin=8;
-    const tableWidth=pageWidth-(margin*2);
-    const widths=[9,58,13,13,13,13,58,13,35];
 
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(16);
-    doc.text("DOLPHIN DIE CAST (P) LTD",pageWidth/2,11,{align:"center"});
-    doc.setFontSize(10.5);
-    doc.text("POWDER COATING PLANNING SHEET",pageWidth/2,17,{align:"center"});
-    doc.setFontSize(9);
-    doc.text("DATE: "+getDownloadDate(),pageWidth-9,24,{align:"right"});
+    // Exact column layout:
+    // SL NO | CASTING NAME | QTY | PT | PC | BAL | POWDER COATED (CASTING NAME | QTY | REMARKS)
+    const widths=[10,57,12,12,12,12,52,12,31];
+    const tableWidth=widths.reduce((a,b)=>a+b,0);
+    const leftW=widths.slice(0,6).reduce((a,b)=>a+b,0);
+    const rightW=widths.slice(6).reduce((a,b)=>a+b,0);
 
+    function drawPageHeader(){
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(15);
+      doc.text("DOLPHIN DIE CAST (P) LTD",pageWidth/2,10,{align:"center"});
+
+      doc.setFontSize(10.5);
+      doc.text("POWDER COATING PLANNING SHEET",pageWidth/2,16,{align:"center"});
+
+      doc.setFontSize(9);
+      doc.text("DATE: "+getDownloadDate(),pageWidth-margin,23,{align:"right"});
+
+      const top=27;
+      const rowH=8;
+
+      doc.setFillColor(242,242,242);
+      doc.setDrawColor(0,0,0);
+      doc.setLineWidth(0.25);
+
+      // Left six columns are vertically merged.
+      doc.rect(margin,top,leftW,rowH*2,"FD");
+
+      // Powder Coated section.
+      doc.rect(margin+leftW,top,rightW,rowH,"FD");
+      doc.rect(margin+leftW,top+rowH,rightW,rowH,"D");
+
+      // Vertical lines for the left columns.
+      let x=margin;
+      for(let i=0;i<6;i++){
+        x+=widths[i];
+        if(i<5) doc.line(x,top,x,top+rowH*2);
+      }
+
+      // Powder Coated sub-columns.
+      x=margin+leftW;
+      x+=widths[6];
+      doc.line(x,top+rowH,x,top+rowH*2);
+      x+=widths[7];
+      doc.line(x,top+rowH,x,top+rowH*2);
+
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(8.2);
+
+      const centers=[];
+      let cx=margin;
+      for(let i=0;i<6;i++){
+        centers.push(cx+widths[i]/2);
+        cx+=widths[i];
+      }
+
+      doc.text("SL. NO",centers[0],top+9,{align:"center"});
+      doc.text("CASTING NAME",centers[1],top+9,{align:"center"});
+      doc.text("QTY",centers[2],top+9,{align:"center"});
+      doc.text("PT",centers[3],top+9,{align:"center"});
+      doc.text("PC",centers[4],top+9,{align:"center"});
+      doc.text("BAL",centers[5],top+9,{align:"center"});
+
+      doc.text("POWDER COATED",margin+leftW+rightW/2,top+5.2,{align:"center"});
+      doc.text("CASTING NAME",margin+leftW+widths[6]/2,top+13.2,{align:"center"});
+      doc.text("QTY",margin+leftW+widths[6]+widths[7]/2,top+13.2,{align:"center"});
+      doc.text("REMARKS",margin+leftW+widths[6]+widths[7]+widths[8]/2,top+13.2,{align:"center"});
+
+      return top+(rowH*2);
+    }
+
+    // IMPORTANT:
+    // Item name goes into CASTING NAME (column 2).
+    // Balance quantity goes into BAL (column 6).
+    // QTY remains blank.
     const body=rows.map((r,i)=>[
-      String(i+1), r.name, String(r.qty), "", "", "",
-      "", "", ""
+      String(i+1),       // SL. NO
+      r.name,            // CASTING NAME
+      "",                // QTY - intentionally blank
+      "",                // PT
+      "",                // PC
+      String(r.qty),     // BALANCE QUANTITY
+      "",                // POWDER COATED - CASTING NAME
+      "",                // POWDER COATED - QTY
+      ""                 // REMARKS
     ]);
 
+    const headerBottom=drawPageHeader();
+
     doc.autoTable({
-      startY:27,
-      margin:{left:margin,right:margin},
+      startY:headerBottom,
+      margin:{left:margin,right:margin,bottom:10},
       tableWidth:tableWidth,
       theme:"grid",
-      styles:{font:"helvetica",fontSize:8.5,cellPadding:2,halign:"center",valign:"middle",lineWidth:.25,lineColor:[0,0,0]},
-      bodyStyles:{minCellHeight:8},
+      showHead:"never",
+      styles:{
+        font:"helvetica",
+        fontSize:8.5,
+        cellPadding:2,
+        halign:"center",
+        valign:"middle",
+        lineWidth:0.25,
+        lineColor:[0,0,0],
+        minCellHeight:8
+      },
       columnStyles:{
-        0:{cellWidth:widths[0]},1:{cellWidth:widths[1],halign:"left"},2:{cellWidth:widths[2]},
-        3:{cellWidth:widths[3]},4:{cellWidth:widths[4]},5:{cellWidth:widths[5]},
-        6:{cellWidth:widths[6],halign:"left"},7:{cellWidth:widths[7]},8:{cellWidth:widths[8],halign:"left"}
+        0:{cellWidth:widths[0]},
+        1:{cellWidth:widths[1],halign:"left"},
+        2:{cellWidth:widths[2]},
+        3:{cellWidth:widths[3]},
+        4:{cellWidth:widths[4]},
+        5:{cellWidth:widths[5],halign:"center"},
+        6:{cellWidth:widths[6],halign:"left"},
+        7:{cellWidth:widths[7]},
+        8:{cellWidth:widths[8],halign:"left"}
       },
-      head:[[
-        "SL.\nNO","CASTING NAME","QTY","PT","PC","BAL","CASTING NAME","QTY","REMARKS"
-      ]],
+      body:body,
       didDrawPage:function(data){
-        // The merged section headings are drawn above the table on every page.
-        const y=data.table.settings.startY;
-        const headerH=8;
-        const x=margin;
-        const leftW=widths.slice(0,6).reduce((a,b)=>a+b,0);
-        const rightW=widths.slice(6).reduce((a,b)=>a+b,0);
-        doc.setFillColor(245,245,245);
-        doc.rect(x,y-headerH,leftW,headerH,"F");
-        doc.rect(x+leftW,y-headerH,rightW,headerH,"F");
-        doc.setDrawColor(0,0,0); doc.setLineWidth(.25);
-        doc.rect(x,y-headerH,leftW,headerH);
-        doc.rect(x+leftW,y-headerH,rightW,headerH);
-        doc.setFont("helvetica","bold"); doc.setFontSize(8.5);
-        doc.text("",x+2,y-2);
-        doc.text("POWDER COATED",x+leftW+rightW/2,y-3,{align:"center"});
-      },
-      didParseCell:function(data){
-        if(data.section==="head"){
-          data.cell.styles.fillColor=[245,245,245];
-          data.cell.styles.fontStyle="bold";
-          data.cell.styles.minCellHeight=12;
+        // Re-draw the title/header when autoTable creates another PDF page.
+        if(data.pageNumber>1){
+          drawPageHeader();
         }
       }
     });
 
-    // Recreate the exact two-row header more cleanly over the table header.
-    // This overlay does not change the data; it only provides the requested merged look.
-    const firstY=27;
-    const headTop=firstY;
-    const row2Top=firstY+8;
-    const leftW=widths.slice(0,6).reduce((a,b)=>a+b,0);
-    const rightW=widths.slice(6).reduce((a,b)=>a+b,0);
-    // Cover the single header and draw the merged header structure.
-    doc.setFillColor(245,245,245);
-    doc.rect(margin,headTop,leftW,8,"F");
-    doc.rect(margin+leftW,headTop,rightW,8,"F");
-    doc.setDrawColor(0,0,0);doc.setLineWidth(.25);
-    doc.rect(margin,headTop,leftW,16);
-    doc.rect(margin+leftW,headTop,rightW,8);
-    doc.line(margin,headTop+8,margin+leftW,headTop+8);
-    doc.setFont("helvetica","bold");doc.setFontSize(8.5);
-    doc.text("SL.\nNO",margin+4.5,headTop+5,{align:"center"});
-    doc.text("CASTING NAME",margin+widths[0]+widths[1]/2,headTop+5,{align:"center"});
-    doc.text("QTY",margin+widths[0]+widths[1]+widths[2]/2,headTop+5,{align:"center"});
-    doc.text("PT",margin+widths[0]+widths[1]+widths[2]+widths[3]/2,headTop+5,{align:"center"});
-    doc.text("PC",margin+widths[0]+widths[1]+widths[2]+widths[3]+widths[4]/2,headTop+5,{align:"center"});
-    doc.text("BAL",margin+leftW-widths[5]/2,headTop+5,{align:"center"});
-    doc.text("POWDER COATED",margin+leftW+rightW/2,headTop+5,{align:"center"});
-
-    // Because autoTable's header occupies one row, use the first data row as the second visual header row.
-    // For a reliable downloadable sheet, the actual data starts immediately after the visual header.
-    // A fresh table is therefore drawn for the data below the merged header.
-    const dataStart=firstY+16;
-    doc.autoTable({
-      startY:dataStart,
-      margin:{left:margin,right:margin},
-      tableWidth:tableWidth,
-      theme:"grid",
-      showHead:"never",
-      styles:{font:"helvetica",fontSize:8.5,cellPadding:2,halign:"center",valign:"middle",lineWidth:.25,lineColor:[0,0,0]},
-      body:body,
-      columnStyles:{0:{cellWidth:widths[0]},1:{cellWidth:widths[1],halign:"left"},2:{cellWidth:widths[2]},3:{cellWidth:widths[3]},4:{cellWidth:widths[4]},5:{cellWidth:widths[5]},6:{cellWidth:widths[6],halign:"left"},7:{cellWidth:widths[7]},8:{cellWidth:widths[8],halign:"left"}}
-    });
-
     doc.save("Powder_Coating_Balance_Stock_"+getDownloadFileDate()+".pdf");
     closeDownloadOptions();
+
   }catch(error){
     console.error(error);
     alert("Unable to create PDF: "+error.message);
@@ -228,113 +269,67 @@ function downloadBalancePDF(){
 function downloadBalanceExcel(){
   try{
     syncPowderBalances();
-    const rows=(getBalanceDownloadRows()||[]).filter(r=>Number(r.qty)>0);
-
+    const rows=getBalanceDownloadRows();
+    if(!rows.length){
+      alert("There are no Powder Coating balance items greater than 0 to download.");
+      return;
+    }
     if(!window.XLSX){
       alert("Excel library could not be loaded. Please check your internet connection and try again.");
       return;
     }
 
-    // The Excel file is deliberately made as TWO worksheets.
-    // This guarantees that Page 1 and Page 2 are both present in Excel.
-    // Only positive balance quantities are entered. Zero-balance items stay blank.
-    const PAGE_ROWS=22;
-    const positiveRows=rows.map((r,i)=>({sl:i+1,name:String(r.name||""),qty:Number(r.qty)||0}));
+    const aoa=[
+      ["DOLPHIN DIE CAST (P) LTD"],
+      ["POWDER COATING PLANNING SHEET"],
+      ["DATE: "+getDownloadDate()],
+      ["SL. NO","CASTING NAME","QTY","PT","PC","BAL","POWDER COATED","",""],
+      ["","","","","","","CASTING NAME","QTY","REMARKS"]
+    ];
+    rows.forEach((r,i)=>aoa.push([i+1,r.name,r.qty,"","","","","",""]));
 
-    const border={
-      top:{style:"thin",color:{rgb:"000000"}},
-      bottom:{style:"thin",color:{rgb:"000000"}},
-      left:{style:"thin",color:{rgb:"000000"}},
-      right:{style:"thin",color:{rgb:"000000"}}
-    };
-    const titleStyle={font:{name:"Arial",sz:16,bold:true},alignment:{horizontal:"center",vertical:"center"}};
-    const subtitleStyle={font:{name:"Arial",sz:12,bold:true},alignment:{horizontal:"center",vertical:"center"}};
-    const dateStyle={font:{name:"Arial",sz:10,bold:true},alignment:{horizontal:"right",vertical:"center"}};
-    const mainHeaderStyle={font:{name:"Arial",sz:10,bold:true},fill:{fgColor:{rgb:"D9E2F3"}},border:border,alignment:{horizontal:"center",vertical:"center",wrapText:true}};
-    const subHeaderStyle={font:{name:"Arial",sz:10,bold:true},fill:{fgColor:{rgb:"E2F0D9"}},border:border,alignment:{horizontal:"center",vertical:"center",wrapText:true}};
-    const centerStyle={font:{name:"Arial",sz:10},border:border,alignment:{horizontal:"center",vertical:"center",wrapText:true}};
-    const leftStyle={font:{name:"Arial",sz:10},border:border,alignment:{horizontal:"left",vertical:"center",wrapText:true}};
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws["!merges"]=[
+      {s:{r:0,c:0},e:{r:0,c:8}},
+      {s:{r:1,c:0},e:{r:1,c:8}},
+      {s:{r:2,c:0},e:{r:2,c:8}},
+      {s:{r:3,c:0},e:{r:4,c:0}},
+      {s:{r:3,c:1},e:{r:4,c:1}},
+      {s:{r:3,c:2},e:{r:4,c:2}},
+      {s:{r:3,c:3},e:{r:4,c:3}},
+      {s:{r:3,c:4},e:{r:4,c:4}},
+      {s:{r:3,c:5},e:{r:4,c:5}},
+      {s:{r:3,c:6},e:{r:3,c:8}}
+    ];
+    ws["!cols"]=[
+      {wch:8},{wch:55},{wch:12},{wch:10},{wch:10},{wch:10},{wch:35},{wch:12},{wch:28}
+    ];
 
-    function makePageSheet(pageNo, startIndex){
-      const aoa=[
-        ["DOLPHIN DIE CAST (P) LTD","","","","","","","", ""],
-        ["POWDER COATING PLANNING SHEET","","","","","","","", ""],
-        ["DATE: "+getDownloadDate(),"","","","","","","", ""],
-        ["SL. NO","CASTING NAME","QTY","PT","PC","BAL","POWDER COATED","", ""],
-        ["","","","","","","CASTING NAME","QTY","REMARKS"]
-      ];
-
-      // Always create all 22 rows on both pages.
-      // Missing/zero items remain completely blank.
-      for(let i=0;i<PAGE_ROWS;i++){
-        const r=positiveRows[startIndex+i];
-        aoa.push(r ? [r.sl,r.name,r.qty,"","","","","",""] : ["","","","","","","","",""]);
-      }
-
-      // Page 2 is intentionally created even when there are no more balance items.
-      const ws=XLSX.utils.aoa_to_sheet(aoa);
-
-      ws["!merges"]=[
-        {s:{r:0,c:0},e:{r:0,c:8}},
-        {s:{r:1,c:0},e:{r:1,c:8}},
-        {s:{r:2,c:0},e:{r:2,c:8}},
-        {s:{r:3,c:0},e:{r:4,c:0}},
-        {s:{r:3,c:1},e:{r:4,c:1}},
-        {s:{r:3,c:2},e:{r:4,c:2}},
-        {s:{r:3,c:3},e:{r:4,c:3}},
-        {s:{r:3,c:4},e:{r:4,c:4}},
-        {s:{r:3,c:5},e:{r:4,c:5}},
-        {s:{r:3,c:6},e:{r:3,c:8}}
-      ];
-
-      ws["!cols"]=[
-        {wch:9},{wch:38},{wch:12},{wch:10},{wch:10},{wch:10},{wch:32},{wch:12},{wch:28}
-      ];
-      ws["!rows"]=[];
-      ws["!rows"][0]={hpt:28};
-      ws["!rows"][1]={hpt:22};
-      ws["!rows"][2]={hpt:20};
-      ws["!rows"][3]={hpt:26};
-      ws["!rows"][4]={hpt:24};
-
-      ws["A1"].s=titleStyle;
-      ws["A2"].s=subtitleStyle;
-      ws["A3"].s=dateStyle;
-
+    const border={style:"thin",color:{rgb:"000000"}};
+    const center={horizontal:"center",vertical:"center",wrapText:true};
+    const left={horizontal:"left",vertical:"center",wrapText:true};
+    for(let r=0;r<aoa.length;r++){
       for(let c=0;c<9;c++){
-        const a=XLSX.utils.encode_cell({r:3,c:c});
-        if(!ws[a]) ws[a]={v:"",t:"s"};
-        ws[a].s=mainHeaderStyle;
+        const addr=XLSX.utils.encode_cell({r,c});
+        if(!ws[addr]) ws[addr]={v:"",t:"s"};
+        ws[addr].s={border:{top:border,bottom:border,left:border,right:border},alignment:(c===1||c===6||c===8)?left:center};
       }
-      for(let c=6;c<9;c++){
-        const a=XLSX.utils.encode_cell({r:4,c:c});
-        if(!ws[a]) ws[a]={v:"",t:"s"};
-        ws[a].s=subHeaderStyle;
-      }
-
-      for(let r=5;r<aoa.length;r++){
-        ws["!rows"][r]={hpt:21};
-        for(let c=0;c<9;c++){
-          const addr=XLSX.utils.encode_cell({r:r,c:c});
-          if(!ws[addr]) ws[addr]={v:"",t:"s"};
-          ws[addr].s=(c===1||c===6||c===8)?leftStyle:centerStyle;
-        }
-      }
-
-      ws["!pageSetup"]={orientation:"landscape",paperSize:"9",fitToWidth:1,fitToHeight:1};
-      ws["!margins"]={left:0.25,right:0.25,top:0.45,bottom:0.45,header:0.2,footer:0.2};
-      ws["!printArea"]="A1:I"+aoa.length;
-      ws["!sheetPr"]={pageSetUpPr:{fitToPage:true,autoPageBreaks:false}};
-      ws["!printTitles"]={rows:{from:3,to:4}};
-      ws["!views"]=[{showGridLines:false}];
-      return ws;
     }
+    ["A1","A2"].forEach(a=>{ws[a].s={font:{bold:true,sz:a==="A1"?16:12},alignment:{horizontal:"center",vertical:"center"}}});
+    ws["A3"].s={font:{bold:true},alignment:{horizontal:"right",vertical:"center"}};
+    for(let c=0;c<9;c++){
+      const a=XLSX.utils.encode_cell({r:3,c});
+      if(ws[a]) ws[a].s={font:{bold:true},fill:{fgColor:{rgb:"F2F2F2"}},border:{top:border,bottom:border,left:border,right:border},alignment:center};
+    }
+    for(let c=6;c<9;c++){
+      const a=XLSX.utils.encode_cell({r:4,c});
+      if(ws[a]) ws[a].s={font:{bold:true},fill:{fgColor:{rgb:"F2F2F2"}},border:{top:border,bottom:border,left:border,right:border},alignment:center};
+    }
+    ws["!rows"]=[{hpt:24},{hpt:20},{hpt:18},{hpt:24},{hpt:22}];
 
     const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,makePageSheet(1,0),"Page 1 - Balance Stock");
-    XLSX.utils.book_append_sheet(wb,makePageSheet(2,PAGE_ROWS),"Page 2 - Balance Stock");
-
-    XLSX.writeFile(wb,"Powder_Coating_Balance_Stock_"+getDownloadFileDate()+".xlsx",{bookType:"xlsx",cellStyles:true});
+    XLSX.utils.book_append_sheet(wb,ws,"Balance Stock");
+    XLSX.writeFile(wb,"Powder_Coating_Balance_Stock_"+getDownloadFileDate()+".xlsx");
     closeDownloadOptions();
   }catch(error){
     console.error(error);
@@ -344,7 +339,7 @@ function downloadBalanceExcel(){
 
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
