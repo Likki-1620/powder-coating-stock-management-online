@@ -413,6 +413,10 @@ function downloadBalanceExcel(){
 
     <div class="panel" id="todayAddedPanel" style="display:none">
       <h2>➕ Today's Added Stock</h2>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>🔎 Search by Item Code or Item Name</label>
+        <input class="search" id="todayAddedSearch" type="search" autocomplete="off" placeholder="🔎 Type Item Code or Item Name..." oninput="renderTodayAddedStock()">
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -425,6 +429,10 @@ function downloadBalanceExcel(){
 
     <div class="panel" id="todaySentPanel" style="display:none">
       <h2>📤 Today's Powder Coating Sended Stock</h2>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>🔎 Search by Item Code or Item Name</label>
+        <input class="search" id="todaySentSearch" type="search" autocomplete="off" placeholder="🔎 Type Item Code or Item Name..." oninput="renderTodaySentStock()">
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -1185,8 +1193,10 @@ function renderTodayAddedStock(){
   if(!tbody)return;
   tbody.innerHTML="";
 
+  const search=(document.getElementById("todayAddedSearch")?.value||"").trim().toLowerCase();
   const rows=transactions
     .filter(t=>t && t.type==="ADD_STOCK" && isToday(t.createdAt))
+    .filter(t=>!search || String(t.itemCode||"").toLowerCase().includes(search) || String(t.itemName||"").toLowerCase().includes(search))
     .slice()
     .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
 
@@ -1210,8 +1220,10 @@ function renderTodaySentStock(){
   if(!tbody)return;
   tbody.innerHTML="";
 
+  const search=(document.getElementById("todaySentSearch")?.value||"").trim().toLowerCase();
   const rows=transactions
     .filter(t=>t && (t.type==="PENDING_RECEIPT" || t.type==="SEND_TO_POWDER" || t.type==="RECEIVE_POWDER") && isToday(t.createdAt))
+    .filter(t=>!search || String(t.itemCode||"").toLowerCase().includes(search) || String(t.itemName||"").toLowerCase().includes(search))
     .slice()
     .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
 
