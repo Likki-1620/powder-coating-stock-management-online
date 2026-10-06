@@ -64,8 +64,6 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 }
 .password-toggle:focus{outline:2px solid #64748b;outline-offset:2px}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
@@ -108,7 +106,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
     <button onclick="showPage('receivedStock',this)"><span class="menu-icon">📥</span>Received Stock</button>
     <button onclick="showPage('completedStock',this)"><span class="menu-icon">✅</span>Powder Coating Completed Stock</button>
     <button onclick="showPage('powderAvailable',this)"><span class="menu-icon">📊</span>Balance Stock</button>
-    <button onclick="downloadBalancePDF(this)"><span class="menu-icon">📄</span>Download</button>
+    <button onclick="downloadPowderBalancePDF()"><span class="menu-icon">📄</span>Download</button>
     <button class="logout" onclick="logout()"><span class="menu-icon">🚪</span>Logout</button>
   </div>
 </aside>
@@ -251,9 +249,6 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
   <section class="page" id="powderAvailable">
     <div class="panel"><h2>📦 Powder Coating Balance Stock</h2>
       <input class="search" id="powderSearch" type="search" autocomplete="off" oninput="renderPowderStock()" placeholder="🔎 Type Item Code or Item Name...">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0">
-        <button class="primary-btn" style="margin-top:0;background:#16a34a" onclick="downloadBalancePDF()">📄 Download Balance Stock PDF</button>
-      </div>
       <div class="small-note">Search works instantly by Item Code or Item Name.</div>
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Balance Quantity</th></tr></thead><tbody id="powderStockTable"></tbody></table></div>
     </div>
@@ -301,6 +296,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 </main>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 function loadCustomItems(){
   try{return JSON.parse(localStorage.getItem("customItems")||"[]").filter(x=>x&&x.code&&x.name);}catch(e){return [];}
@@ -1083,179 +1079,6 @@ function syncPowderBalances(){
   });
 }
 
-
-async function downloadBalancePDF(buttonEl){
-  try{
-    if(!window.jspdf || !window.jspdf.jsPDF){
-      alert("PDF library is not loaded. Please check your internet connection and try again.");
-      return;
-    }
-
-    const btn=buttonEl || null;
-    const originalText=btn ? btn.innerHTML : "";
-    if(btn){
-      btn.disabled=true;
-      btn.innerHTML="⏳ Preparing PDF...";
-    }
-
-    // Make sure the PDF uses the latest server data.
-    try{ await loadServerData(); }catch(e){ /* keep current data if refresh fails */ }
-
-    const {jsPDF}=window.jspdf;
-    const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
-    const today=new Date();
-    const dateText=today.toLocaleDateString("en-GB");
-    const fileDate=dateText.replace(/\//g,"-");
-
-    // Header styled after the uploaded planning sheet.
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(15);
-    doc.text("DOLPHIN DIE CAST (P) LTD",148.5,12,{align:"center"});
-
-    doc.setFontSize(12);
-    doc.text("POWDER COATING PLANNING SHEET",148.5,19,{align:"center"});
-
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(9);
-    doc.text("DATE: "+dateText,278,26,{align:"right"});
-
-    // Current Powder Coating balance stock.
-    const balanceRows=ITEMS.map((item,index)=>({
-      sl:index+1,
-      code:String(item.code||""),
-      name:String(item.name||""),
-      pt:Number(stockData.preTreatment?.[item.code]||0),
-      pc:Number(getPowderBalanceQuantity(item.code)||0)
-    }));
-
-    const tableBody=balanceRows.map(r=>[
-      r.sl,
-      r.code,
-      r.name,
-      r.pc,
-      r.pt,
-      r.pc,
-      r.pc
-    ]);
-
-    doc.autoTable({
-      startY:30,
-      head:[[
-        "SL. NO",
-        "ITEM CODE",
-        "CASTING NAME",
-        "Balance Quantity",
-        "PT",
-        "PC",
-        "BAL"
-      ]],
-      body:tableBody,
-      theme:"grid",
-      styles:{
-        font:"helvetica",
-        fontSize:7,
-        cellPadding:2,
-        lineWidth:0.2,
-        overflow:"linebreak"
-      },
-      headStyles:{
-        fontStyle:"bold",
-        halign:"center",
-        valign:"middle"
-      },
-      columnStyles:{
-        0:{cellWidth:14,halign:"center"},
-        1:{cellWidth:28},
-        2:{cellWidth:105},
-        3:{cellWidth:30,halign:"right"},
-        4:{cellWidth:18,halign:"right"},
-        5:{cellWidth:18,halign:"right"},
-        6:{cellWidth:18,halign:"right"}
-      },
-      didParseCell:function(data){
-        if(data.section==="body"){
-          data.cell.styles.valign="middle";
-        }
-      },
-      margin:{left:8,right:8}
-    });
-
-    // Match the uploaded file's "POWDER COATED" section.
-    const completedMap={};
-    completed.forEach(r=>{
-      const code=String(r.itemCode||"");
-      if(!code)return;
-      completedMap[code]=(completedMap[code]||0)+Number(r.quantity||0);
-    });
-
-    const completedRows=Object.keys(completedMap).map((code,index)=>{
-      const item=ITEMS.find(x=>String(x.code)===code);
-      return [
-        index+1,
-        item ? String(item.name||"") : code,
-        completedMap[code],
-        ""
-      ];
-    });
-
-    let y=doc.lastAutoTable.finalY+8;
-    if(y>185){
-      doc.addPage();
-      y=12;
-    }
-
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(10);
-    doc.text("POWDER COATED",8,y);
-
-    if(completedRows.length){
-      doc.autoTable({
-        startY:y+3,
-        head:[["SL. NO","CASTING NAME","QTY","REMARKS"]],
-        body:completedRows,
-        theme:"grid",
-        styles:{font:"helvetica",fontSize:7,cellPadding:2,lineWidth:0.2},
-        headStyles:{fontStyle:"bold",halign:"center"},
-        columnStyles:{
-          0:{cellWidth:18,halign:"center"},
-          1:{cellWidth:160},
-          2:{cellWidth:25,halign:"right"},
-          3:{cellWidth:65}
-        },
-        margin:{left:8,right:8}
-      });
-    }else{
-      doc.setFont("helvetica","normal");
-      doc.setFontSize(8);
-      doc.text("No powder coated stock recorded.",8,y+6);
-    }
-
-    // Footer on every page.
-    const pageCount=doc.getNumberOfPages();
-    for(let p=1;p<=pageCount;p++){
-      doc.setPage(p);
-      doc.setFont("helvetica","normal");
-      doc.setFontSize(7);
-      doc.text("Generated from Powder Coating Dashboard",8,204);
-      doc.text("Page "+p+" of "+pageCount,289,204,{align:"right"});
-    }
-
-    doc.save("Powder_Coating_Balance_Stock_"+fileDate+".pdf");
-
-    if(btn){
-      btn.disabled=false;
-      btn.innerHTML=originalText;
-    }
-  }catch(error){
-    console.error("PDF download error:",error);
-    alert("Unable to create PDF: "+(error?.message||error));
-    if(buttonEl){
-      buttonEl.disabled=false;
-      buttonEl.innerHTML="📄 Download";
-    }
-  }
-}
-
 function renderPowderStock(){
   const search=(document.getElementById("powderSearch")?.value||"").trim().toLowerCase();
   const tbody=document.getElementById("powderStockTable");
@@ -1316,6 +1139,121 @@ function refreshAll(){
   renderPowderStock();
   renderCompleted();
   refreshDashboard();
+}
+
+function downloadPowderBalancePDF(){
+  try{
+    if(!window.jspdf || !window.jspdf.jsPDF){
+      alert("PDF library could not be loaded. Please check your internet connection and try again.");
+      return;
+    }
+
+    syncPowderBalances();
+
+    // Only positive balance items are included. Serial numbers are generated from this list only.
+    const balanceItems=ITEMS.map(item=>({
+      item,
+      qty:Number(getPowderBalanceQuantity(item.code))||0
+    })).filter(x=>x.qty>0);
+
+    if(!balanceItems.length){
+      alert("There are no items with balance stock to download.");
+      return;
+    }
+
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+    const pageW=doc.internal.pageSize.getWidth();
+    const pageH=doc.internal.pageSize.getHeight();
+    const marginX=5;
+    const tableW=pageW-marginX*2;
+    const titleH=10, subtitleH=8, dateH=8, headerH=20, rowH=10;
+    const widths=[10,75,15,15,15,15,65,20,47];
+    const scale=tableW/widths.reduce((a,b)=>a+b,0);
+    const colW=widths.map(w=>w*scale);
+
+    function cellText(text,x,y,w,h,opts={}){
+      const fontSize=opts.fontSize||8;
+      const bold=!!opts.bold;
+      const align=opts.align||"left";
+      doc.setFont("helvetica",bold?"bold":"normal");
+      doc.setFontSize(fontSize);
+      const lines=doc.splitTextToSize(String(text??""),Math.max(2,w-3));
+      const lineHeight=fontSize*0.42;
+      const maxLines=Math.max(1,Math.floor(h/lineHeight));
+      const shown=lines.slice(0,maxLines);
+      const startY=y+h/2-(shown.length-1)*lineHeight/2;
+      shown.forEach((line,i)=>{
+        let tx=x+2;
+        if(align==="center") tx=x+w/2;
+        if(align==="right") tx=x+w-2;
+        doc.text(line,tx,startY+i*lineHeight,{align,baseline:"middle"});
+      });
+    }
+
+    function drawHeader(y){
+      doc.setDrawColor(20,20,20);
+      doc.setLineWidth(0.25);
+      doc.rect(marginX,y,tableW,titleH);
+      cellText("DOLPHIN DIE CAST (P) LTD",marginX,y,tableW,titleH,{fontSize:13,bold:true,align:"center"});
+      y+=titleH;
+      doc.rect(marginX,y,tableW,subtitleH);
+      cellText("POWDER COATING PLANNING SHEET",marginX,y,tableW,subtitleH,{fontSize:10,bold:true,align:"center"});
+      y+=subtitleH;
+      doc.rect(marginX,y,tableW,dateH);
+      cellText("DATE: "+new Date().toLocaleDateString("en-GB"),marginX,y,tableW,dateH,{fontSize:9,bold:true,align:"right"});
+      y+=dateH;
+
+      let x=marginX;
+      const leftHeaders=["SL. NO","CASTING NAME","QTY","PT","PC","BAL"];
+      for(let i=0;i<6;i++){
+        doc.rect(x,y,colW[i],headerH);
+        cellText(leftHeaders[i],x,y,colW[i],headerH,{fontSize:8,bold:true,align:"center"});
+        x+=colW[i];
+      }
+      const rightStart=x;
+      const rightW=colW[6]+colW[7]+colW[8];
+      doc.rect(rightStart,y,rightW,headerH/2);
+      cellText("POWDER COATED",rightStart,y,rightW,headerH/2,{fontSize:8,bold:true,align:"center"});
+      const ry=y+headerH/2;
+      doc.rect(rightStart,ry,colW[6],headerH/2);
+      doc.rect(rightStart+colW[6],ry,colW[7],headerH/2);
+      doc.rect(rightStart+colW[6]+colW[7],ry,colW[8],headerH/2);
+      cellText("CASTING NAME",rightStart,ry,colW[6],headerH/2,{fontSize:8,bold:true,align:"center"});
+      cellText("QTY",rightStart+colW[6],ry,colW[7],headerH/2,{fontSize:8,bold:true,align:"center"});
+      cellText("REMARKS",rightStart+colW[6]+colW[7],ry,colW[8],headerH/2,{fontSize:8,bold:true,align:"center"});
+      return y+headerH;
+    }
+
+    let y=drawHeader(5);
+    let slNo=0;
+
+    balanceItems.forEach(({item,qty})=>{
+      if(y+rowH>pageH-8){
+        doc.addPage();
+        y=drawHeader(5);
+      }
+      let x=marginX;
+      // Balance quantity goes into QTY. CASTING NAME uses the item name. PT/PC/BAL remain blank.
+      const values=[String(++slNo),item.name,String(qty),"","",""];
+      for(let i=0;i<6;i++){
+        doc.rect(x,y,colW[i],rowH);
+        cellText(values[i],x,y,colW[i],rowH,{fontSize:i===1?7:8,align:i===1?"left":"center"});
+        x+=colW[i];
+      }
+      // Blank Powder Coated planning columns.
+      doc.rect(x,y,colW[6],rowH);
+      doc.rect(x+colW[6],y,colW[7],rowH);
+      doc.rect(x+colW[6]+colW[7],y,colW[8],rowH);
+      y+=rowH;
+    });
+
+    const safeDate=new Date().toISOString().slice(0,10);
+    doc.save("Powder_Coating_Balance_Stock_"+safeDate+".pdf");
+  }catch(error){
+    console.error("PDF download error:",error);
+    alert("Unable to create PDF: "+(error?.message||error));
+  }
 }
 
 function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open")}
