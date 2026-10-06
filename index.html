@@ -98,6 +98,21 @@ th{background:#f1f5f9;font-size:14px}
   padding:6px;line-height:1;z-index:5;color:#333
 }
 .password-toggle:focus{outline:2px solid #64748b;outline-offset:2px}
+
+.notification-wrap{position:relative;display:none;margin-right:10px}
+.notification-btn{border:0;background:#f1f5f9;border-radius:12px;padding:9px 12px;font-size:20px;cursor:pointer;position:relative}
+.notification-badge{position:absolute;top:-5px;right:-5px;background:#dc2626;color:#fff;border-radius:999px;min-width:20px;height:20px;font-size:12px;display:none;align-items:center;justify-content:center;font-weight:700;padding:0 5px}
+.notification-panel{position:absolute;right:0;top:48px;width:min(360px,calc(100vw - 24px));background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 12px 35px rgba(0,0,0,.18);display:none;z-index:9999;overflow:hidden}
+.notification-panel.show{display:block}
+.notification-head{padding:12px 14px;font-weight:700;border-bottom:1px solid #e2e8f0}
+.notification-list{max-height:360px;overflow:auto}
+.notification-item{padding:13px 14px;border-bottom:1px solid #f1f5f9;font-size:14px;line-height:1.45}
+.notification-item:last-child{border-bottom:0}
+.notification-item strong{display:block;margin-bottom:4px}
+.stock-toast{position:fixed;right:18px;bottom:18px;width:min(380px,calc(100vw - 36px));background:#fff;border-left:5px solid #16a34a;border-radius:12px;box-shadow:0 12px 35px rgba(0,0,0,.22);padding:14px 16px;z-index:10000;display:none}
+.stock-toast.show{display:block;animation:toastIn .25s ease}
+@keyframes toastIn{from{transform:translateY(15px);opacity:0}to{transform:translateY(0);opacity:1}}
+@media(max-width:600px){.notification-panel{right:-8px}.stock-toast{right:10px;bottom:10px;width:calc(100vw - 20px)}}
 </style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -414,7 +429,8 @@ function downloadBalanceExcel(){
 
 <main class="main">
   <div class="mobile-header"><button onclick="toggleSidebar()">☰</button><strong>Stock Management</strong></div>
-  <div class="topbar"><h1 id="pageTitle">Dashboard</h1><div class="topbar-user" id="topUser">User</div></div>
+  <div class="topbar"><h1 id="pageTitle">Dashboard</h1><div style="display:flex;align-items:center"><div class="notification-wrap" id="notificationWrap"><button class="notification-btn" onclick="toggleNotifications()" aria-label="Notifications">🔔<span class="notification-badge" id="notificationBadge">0</span></button><div class="notification-panel" id="notificationPanel"><div class="notification-head">🔔 Stock Notifications</div><div class="notification-list" id="notificationList"><div class="notification-item" style="text-align:center;color:#64748b">No new notifications</div></div></div></div><div class="topbar-user" id="topUser">User</div></div></div>
+<div class="stock-toast" id="stockToast"></div>
 
   <section class="page active" id="preDashboard">
     <div class="cards">
@@ -645,6 +661,10 @@ let stockData={preTreatment:{},powderCoating:{}};
 let transactions=[];
 let completed=[];
 let authToken=sessionStorage.getItem("authToken")||"";
+let notificationTimer=null;
+let notificationSeen=new Set(JSON.parse(sessionStorage.getItem("notificationSeenIds")||"[]"));
+let notificationItems=[];
+let loginStartedAt=sessionStorage.getItem("loginStartedAt")||"";
 
 function saveData(){
   // PostgreSQL is the source of truth. Kept only for compatibility with
@@ -732,6 +752,8 @@ async function login(){
 
     authToken=result.token;
     currentUser=result.username;
+    loginStartedAt=new Date().toISOString();
+    sessionStorage.setItem("loginStartedAt",loginStartedAt);
     sessionStorage.setItem("authToken",authToken);
     sessionStorage.setItem("currentUser",currentUser);
 
@@ -744,6 +766,7 @@ async function login(){
     document.getElementById("preMenu").style.display=currentUser==="pretreatment"?"block":"none";
     document.getElementById("powderMenu").style.display=currentUser==="powdercoating"?"block":"none";
     showPage(currentUser==="pretreatment"?"preDashboard":"powderDashboard");
+    startNotificationPolling();
   }catch(error){
     errorBox.textContent=error.message==="Invalid username or password"
       ?"Invalid username or password"
@@ -753,10 +776,13 @@ async function login(){
 }
 
 function logout(){
+  stopNotificationPolling();
   authToken="";
   currentUser=null;
   sessionStorage.removeItem("authToken");
   sessionStorage.removeItem("currentUser");
+  sessionStorage.removeItem("loginStartedAt");
+  sessionStorage.removeItem("notificationSeenIds");
   stockData={preTreatment:{},powderCoating:{}};
   transactions=[];
   completed=[];
@@ -764,6 +790,82 @@ function logout(){
   document.getElementById("loginPage").style.display="flex";
   document.getElementById("password").value="";
 }
+
+function startNotificationPolling(){
+  stopNotificationPolling();
+  const wrap=document.getElementById("notificationWrap");
+  if(wrap) wrap.style.display=currentUser==="powdercoating" ? "block" : "none";
+  if(currentUser!=="powdercoating") return;
+  checkStockNotifications();
+  notificationTimer=setInterval(checkStockNotifications,3000);
+}
+
+function stopNotificationPolling(){
+  if(notificationTimer){clearInterval(notificationTimer);notificationTimer=null;}
+  const wrap=document.getElementById("notificationWrap");
+  if(wrap) wrap.style.display="none";
+}
+
+async function checkStockNotifications(){
+  if(currentUser!=="powdercoating" || !authToken) return;
+  try{
+    const since=loginStartedAt || new Date().toISOString();
+    const data=await apiFetch("/api/notifications?since="+encodeURIComponent(since));
+    const rows=Array.isArray(data.notifications)?data.notifications:[];
+    rows.forEach(n=>{
+      const id=String(n.id);
+      if(notificationSeen.has(id)) return;
+      notificationSeen.add(id);
+      notificationItems.unshift(n);
+      showStockNotification(n);
+    });
+    if(notificationSeen.size>300){
+      notificationSeen=new Set(Array.from(notificationSeen).slice(-300));
+    }
+    sessionStorage.setItem("notificationSeenIds",JSON.stringify(Array.from(notificationSeen)));
+    renderNotifications();
+  }catch(error){
+    // Keep the live notification check silent if the network is temporarily unavailable.
+  }
+}
+
+function showStockNotification(n){
+  const toast=document.getElementById("stockToast");
+  if(!toast)return;
+  toast.innerHTML="<strong>📦 New Stock Sent</strong><div><b>Item:</b> "+escapeHtml(String(n.itemName||""))+"</div><div><b>Item Code:</b> "+escapeHtml(String(n.itemCode||""))+"</div><div><b>Quantity:</b> "+(Number(n.quantity)||0)+"</div><div><b>From:</b> Pre Treatment</div>";
+  toast.classList.add("show");
+  clearTimeout(window.stockToastTimer);
+  window.stockToastTimer=setTimeout(()=>toast.classList.remove("show"),7000);
+}
+
+function renderNotifications(){
+  const list=document.getElementById("notificationList");
+  const badge=document.getElementById("notificationBadge");
+  if(!list||!badge)return;
+  const count=notificationItems.length;
+  badge.textContent=count>99?"99+":String(count);
+  badge.style.display=count?"flex":"none";
+  if(!count){
+    list.innerHTML='<div class="notification-item" style="text-align:center;color:#64748b">No new notifications</div>';
+    return;
+  }
+  list.innerHTML=notificationItems.slice(0,50).map(n=>{
+    const d=n.createdAt?new Date(n.createdAt):null;
+    const when=d&&!isNaN(d)?d.toLocaleString():"";
+    return '<div class="notification-item"><strong>📦 Stock sent to Powder Coating</strong><div><b>Item:</b> '+escapeHtml(String(n.itemName||""))+'</div><div><b>Item Code:</b> '+escapeHtml(String(n.itemCode||""))+'</div><div><b>Quantity:</b> '+(Number(n.quantity)||0)+'</div><div style="color:#64748b;margin-top:4px">'+escapeHtml(when)+'</div></div>';
+  }).join("");
+}
+
+function toggleNotifications(){
+  const panel=document.getElementById("notificationPanel");
+  if(panel)panel.classList.toggle("show");
+}
+
+document.addEventListener("click",function(e){
+  const wrap=document.getElementById("notificationWrap");
+  const panel=document.getElementById("notificationPanel");
+  if(wrap&&panel&&!wrap.contains(e.target))panel.classList.remove("show");
+});
 
 function showPage(pageId,button){
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
@@ -1510,6 +1612,7 @@ document.addEventListener("DOMContentLoaded",async()=>{
       document.getElementById("preMenu").style.display=saved==="pretreatment"?"block":"none";
       document.getElementById("powderMenu").style.display=saved==="powdercoating"?"block":"none";
       showPage(saved==="pretreatment"?"preDashboard":"powderDashboard");
+      startNotificationPolling();
       return;
     }catch(error){
       authToken="";
