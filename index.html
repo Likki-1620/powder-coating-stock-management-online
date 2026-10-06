@@ -64,6 +64,240 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
 }
 .password-toggle:focus{outline:2px solid #64748b;outline-offset:2px}
 </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+
+function openDownloadOptions(){
+  const modal=document.getElementById("downloadModal");
+  if(modal) modal.style.display="flex";
+}
+
+function closeDownloadOptions(){
+  const modal=document.getElementById("downloadModal");
+  if(modal) modal.style.display="none";
+}
+
+function getBalanceDownloadRows(){
+  // Only current Powder Coating balance items (> 0) are included.
+  return ITEMS.map(item=>({
+    code:String(item.code||""),
+    name:String(item.name||""),
+    qty:Number(getPowderBalanceQuantity(item.code))||0
+  })).filter(r=>r.qty>0);
+}
+
+function getDownloadDate(){
+  const d=new Date();
+  const dd=String(d.getDate()).padStart(2,"0");
+  const mm=String(d.getMonth()+1).padStart(2,"0");
+  const yyyy=d.getFullYear();
+  return dd+"/"+mm+"/"+yyyy;
+}
+
+function getDownloadFileDate(){
+  const d=new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+
+function closeDownloadOnBackdrop(event){
+  if(event.target===event.currentTarget) closeDownloadOptions();
+}
+
+function downloadBalancePDF(){
+  try{
+    syncPowderBalances();
+    const rows=getBalanceDownloadRows();
+    if(!rows.length){
+      alert("There are no Powder Coating balance items greater than 0 to download.");
+      return;
+    }
+    if(!window.jspdf || !window.jspdf.jsPDF){
+      alert("PDF library could not be loaded. Please check your internet connection and try again.");
+      return;
+    }
+
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+    const pageWidth=doc.internal.pageSize.getWidth();
+    const margin=8;
+    const tableWidth=pageWidth-(margin*2);
+    const widths=[9,58,13,13,13,13,58,13,35];
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(16);
+    doc.text("DOLPHIN DIE CAST (P) LTD",pageWidth/2,11,{align:"center"});
+    doc.setFontSize(10.5);
+    doc.text("POWDER COATING PLANNING SHEET",pageWidth/2,17,{align:"center"});
+    doc.setFontSize(9);
+    doc.text("DATE: "+getDownloadDate(),pageWidth-9,24,{align:"right"});
+
+    const body=rows.map((r,i)=>[
+      String(i+1), r.name, String(r.qty), "", "", "",
+      "", "", ""
+    ]);
+
+    doc.autoTable({
+      startY:27,
+      margin:{left:margin,right:margin},
+      tableWidth:tableWidth,
+      theme:"grid",
+      styles:{font:"helvetica",fontSize:8.5,cellPadding:2,halign:"center",valign:"middle",lineWidth:.25,lineColor:[0,0,0]},
+      bodyStyles:{minCellHeight:8},
+      columnStyles:{
+        0:{cellWidth:widths[0]},1:{cellWidth:widths[1],halign:"left"},2:{cellWidth:widths[2]},
+        3:{cellWidth:widths[3]},4:{cellWidth:widths[4]},5:{cellWidth:widths[5]},
+        6:{cellWidth:widths[6],halign:"left"},7:{cellWidth:widths[7]},8:{cellWidth:widths[8],halign:"left"}
+      },
+      head:[[
+        "SL.\nNO","CASTING NAME","QTY","PT","PC","BAL","CASTING NAME","QTY","REMARKS"
+      ]],
+      didDrawPage:function(data){
+        // The merged section headings are drawn above the table on every page.
+        const y=data.table.settings.startY;
+        const headerH=8;
+        const x=margin;
+        const leftW=widths.slice(0,6).reduce((a,b)=>a+b,0);
+        const rightW=widths.slice(6).reduce((a,b)=>a+b,0);
+        doc.setFillColor(245,245,245);
+        doc.rect(x,y-headerH,leftW,headerH,"F");
+        doc.rect(x+leftW,y-headerH,rightW,headerH,"F");
+        doc.setDrawColor(0,0,0); doc.setLineWidth(.25);
+        doc.rect(x,y-headerH,leftW,headerH);
+        doc.rect(x+leftW,y-headerH,rightW,headerH);
+        doc.setFont("helvetica","bold"); doc.setFontSize(8.5);
+        doc.text("",x+2,y-2);
+        doc.text("POWDER COATED",x+leftW+rightW/2,y-3,{align:"center"});
+      },
+      didParseCell:function(data){
+        if(data.section==="head"){
+          data.cell.styles.fillColor=[245,245,245];
+          data.cell.styles.fontStyle="bold";
+          data.cell.styles.minCellHeight=12;
+        }
+      }
+    });
+
+    // Recreate the exact two-row header more cleanly over the table header.
+    // This overlay does not change the data; it only provides the requested merged look.
+    const firstY=27;
+    const headTop=firstY;
+    const row2Top=firstY+8;
+    const leftW=widths.slice(0,6).reduce((a,b)=>a+b,0);
+    const rightW=widths.slice(6).reduce((a,b)=>a+b,0);
+    // Cover the single header and draw the merged header structure.
+    doc.setFillColor(245,245,245);
+    doc.rect(margin,headTop,leftW,8,"F");
+    doc.rect(margin+leftW,headTop,rightW,8,"F");
+    doc.setDrawColor(0,0,0);doc.setLineWidth(.25);
+    doc.rect(margin,headTop,leftW,16);
+    doc.rect(margin+leftW,headTop,rightW,8);
+    doc.line(margin,headTop+8,margin+leftW,headTop+8);
+    doc.setFont("helvetica","bold");doc.setFontSize(8.5);
+    doc.text("SL.\nNO",margin+4.5,headTop+5,{align:"center"});
+    doc.text("CASTING NAME",margin+widths[0]+widths[1]/2,headTop+5,{align:"center"});
+    doc.text("QTY",margin+widths[0]+widths[1]+widths[2]/2,headTop+5,{align:"center"});
+    doc.text("PT",margin+widths[0]+widths[1]+widths[2]+widths[3]/2,headTop+5,{align:"center"});
+    doc.text("PC",margin+widths[0]+widths[1]+widths[2]+widths[3]+widths[4]/2,headTop+5,{align:"center"});
+    doc.text("BAL",margin+leftW-widths[5]/2,headTop+5,{align:"center"});
+    doc.text("POWDER COATED",margin+leftW+rightW/2,headTop+5,{align:"center"});
+
+    // Because autoTable's header occupies one row, use the first data row as the second visual header row.
+    // For a reliable downloadable sheet, the actual data starts immediately after the visual header.
+    // A fresh table is therefore drawn for the data below the merged header.
+    const dataStart=firstY+16;
+    doc.autoTable({
+      startY:dataStart,
+      margin:{left:margin,right:margin},
+      tableWidth:tableWidth,
+      theme:"grid",
+      showHead:"never",
+      styles:{font:"helvetica",fontSize:8.5,cellPadding:2,halign:"center",valign:"middle",lineWidth:.25,lineColor:[0,0,0]},
+      body:body,
+      columnStyles:{0:{cellWidth:widths[0]},1:{cellWidth:widths[1],halign:"left"},2:{cellWidth:widths[2]},3:{cellWidth:widths[3]},4:{cellWidth:widths[4]},5:{cellWidth:widths[5]},6:{cellWidth:widths[6],halign:"left"},7:{cellWidth:widths[7]},8:{cellWidth:widths[8],halign:"left"}}
+    });
+
+    doc.save("Powder_Coating_Balance_Stock_"+getDownloadFileDate()+".pdf");
+    closeDownloadOptions();
+  }catch(error){
+    console.error(error);
+    alert("Unable to create PDF: "+error.message);
+  }
+}
+
+function downloadBalanceExcel(){
+  try{
+    syncPowderBalances();
+    const rows=getBalanceDownloadRows();
+    if(!rows.length){
+      alert("There are no Powder Coating balance items greater than 0 to download.");
+      return;
+    }
+    if(!window.XLSX){
+      alert("Excel library could not be loaded. Please check your internet connection and try again.");
+      return;
+    }
+
+    const aoa=[
+      ["DOLPHIN DIE CAST (P) LTD"],
+      ["POWDER COATING PLANNING SHEET"],
+      ["DATE: "+getDownloadDate()],
+      ["SL. NO","CASTING NAME","QTY","PT","PC","BAL","POWDER COATED","",""],
+      ["","","","","","","CASTING NAME","QTY","REMARKS"]
+    ];
+    rows.forEach((r,i)=>aoa.push([i+1,r.name,r.qty,"","","","","",""]));
+
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws["!merges"]=[
+      {s:{r:0,c:0},e:{r:0,c:8}},
+      {s:{r:1,c:0},e:{r:1,c:8}},
+      {s:{r:2,c:0},e:{r:2,c:8}},
+      {s:{r:3,c:0},e:{r:4,c:0}},
+      {s:{r:3,c:1},e:{r:4,c:1}},
+      {s:{r:3,c:2},e:{r:4,c:2}},
+      {s:{r:3,c:3},e:{r:4,c:3}},
+      {s:{r:3,c:4},e:{r:4,c:4}},
+      {s:{r:3,c:5},e:{r:4,c:5}},
+      {s:{r:3,c:6},e:{r:3,c:8}}
+    ];
+    ws["!cols"]=[
+      {wch:8},{wch:55},{wch:12},{wch:10},{wch:10},{wch:10},{wch:35},{wch:12},{wch:28}
+    ];
+
+    const border={style:"thin",color:{rgb:"000000"}};
+    const center={horizontal:"center",vertical:"center",wrapText:true};
+    const left={horizontal:"left",vertical:"center",wrapText:true};
+    for(let r=0;r<aoa.length;r++){
+      for(let c=0;c<9;c++){
+        const addr=XLSX.utils.encode_cell({r,c});
+        if(!ws[addr]) ws[addr]={v:"",t:"s"};
+        ws[addr].s={border:{top:border,bottom:border,left:border,right:border},alignment:(c===1||c===6||c===8)?left:center};
+      }
+    }
+    ["A1","A2"].forEach(a=>{ws[a].s={font:{bold:true,sz:a==="A1"?16:12},alignment:{horizontal:"center",vertical:"center"}}});
+    ws["A3"].s={font:{bold:true},alignment:{horizontal:"right",vertical:"center"}};
+    for(let c=0;c<9;c++){
+      const a=XLSX.utils.encode_cell({r:3,c});
+      if(ws[a]) ws[a].s={font:{bold:true},fill:{fgColor:{rgb:"F2F2F2"}},border:{top:border,bottom:border,left:border,right:border},alignment:center};
+    }
+    for(let c=6;c<9;c++){
+      const a=XLSX.utils.encode_cell({r:4,c});
+      if(ws[a]) ws[a].s={font:{bold:true},fill:{fgColor:{rgb:"F2F2F2"}},border:{top:border,bottom:border,left:border,right:border},alignment:center};
+    }
+    ws["!rows"]=[{hpt:24},{hpt:20},{hpt:18},{hpt:24},{hpt:22}];
+
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Balance Stock");
+    XLSX.writeFile(wb,"Powder_Coating_Balance_Stock_"+getDownloadFileDate()+".xlsx");
+    closeDownloadOptions();
+  }catch(error){
+    console.error(error);
+    alert("Unable to create Excel file: "+error.message);
+  }
+}
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -106,7 +340,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
     <button onclick="showPage('receivedStock',this)"><span class="menu-icon">📥</span>Received Stock</button>
     <button onclick="showPage('completedStock',this)"><span class="menu-icon">✅</span>Powder Coating Completed Stock</button>
     <button onclick="showPage('powderAvailable',this)"><span class="menu-icon">📊</span>Balance Stock</button>
-    <button onclick="downloadPowderBalancePDF()"><span class="menu-icon">📄</span>Download</button>
+    <button onclick="openDownloadOptions()"><span class="menu-icon">⬇️</span>Download</button>
     <button class="logout" onclick="logout()"><span class="menu-icon">🚪</span>Logout</button>
   </div>
 </aside>
@@ -293,10 +527,22 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#2
       <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Date</th><th>Time</th></tr></thead><tbody id="completedTable"></tbody></table></div>
     </div>
   </section>
+
+
+<!-- Powder Coating Download Options -->
+<div id="downloadModal" onclick="closeDownloadOnBackdrop(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;width:100%;max-width:380px;border-radius:16px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.2);">
+    <h2 style="margin:0 0 8px">⬇️ Download Balance Stock</h2>
+    <p style="margin:0 0 20px;color:#667085;font-size:14px">Choose the format to download the current Powder Coating balance stock.</p>
+    <button class="primary-btn" style="width:100%;margin-top:0;background:#dc2626" onclick="downloadBalancePDF()">📄 Download PDF</button>
+    <button class="primary-btn" style="width:100%;margin-top:12px;background:#16a34a" onclick="downloadBalanceExcel()">📊 Download Excel</button>
+    <button class="primary-btn" style="width:100%;margin-top:12px;background:#64748b" onclick="closeDownloadOptions()">✖ Cancel</button>
+  </div>
+</div>
+
 </main>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 function loadCustomItems(){
   try{return JSON.parse(localStorage.getItem("customItems")||"[]").filter(x=>x&&x.code&&x.name);}catch(e){return [];}
@@ -1139,121 +1385,6 @@ function refreshAll(){
   renderPowderStock();
   renderCompleted();
   refreshDashboard();
-}
-
-function downloadPowderBalancePDF(){
-  try{
-    if(!window.jspdf || !window.jspdf.jsPDF){
-      alert("PDF library could not be loaded. Please check your internet connection and try again.");
-      return;
-    }
-
-    syncPowderBalances();
-
-    // Only positive balance items are included. Serial numbers are generated from this list only.
-    const balanceItems=ITEMS.map(item=>({
-      item,
-      qty:Number(getPowderBalanceQuantity(item.code))||0
-    })).filter(x=>x.qty>0);
-
-    if(!balanceItems.length){
-      alert("There are no items with balance stock to download.");
-      return;
-    }
-
-    const {jsPDF}=window.jspdf;
-    const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
-    const pageW=doc.internal.pageSize.getWidth();
-    const pageH=doc.internal.pageSize.getHeight();
-    const marginX=5;
-    const tableW=pageW-marginX*2;
-    const titleH=10, subtitleH=8, dateH=8, headerH=20, rowH=10;
-    const widths=[10,75,15,15,15,15,65,20,47];
-    const scale=tableW/widths.reduce((a,b)=>a+b,0);
-    const colW=widths.map(w=>w*scale);
-
-    function cellText(text,x,y,w,h,opts={}){
-      const fontSize=opts.fontSize||8;
-      const bold=!!opts.bold;
-      const align=opts.align||"left";
-      doc.setFont("helvetica",bold?"bold":"normal");
-      doc.setFontSize(fontSize);
-      const lines=doc.splitTextToSize(String(text??""),Math.max(2,w-3));
-      const lineHeight=fontSize*0.42;
-      const maxLines=Math.max(1,Math.floor(h/lineHeight));
-      const shown=lines.slice(0,maxLines);
-      const startY=y+h/2-(shown.length-1)*lineHeight/2;
-      shown.forEach((line,i)=>{
-        let tx=x+2;
-        if(align==="center") tx=x+w/2;
-        if(align==="right") tx=x+w-2;
-        doc.text(line,tx,startY+i*lineHeight,{align,baseline:"middle"});
-      });
-    }
-
-    function drawHeader(y){
-      doc.setDrawColor(20,20,20);
-      doc.setLineWidth(0.25);
-      doc.rect(marginX,y,tableW,titleH);
-      cellText("DOLPHIN DIE CAST (P) LTD",marginX,y,tableW,titleH,{fontSize:13,bold:true,align:"center"});
-      y+=titleH;
-      doc.rect(marginX,y,tableW,subtitleH);
-      cellText("POWDER COATING PLANNING SHEET",marginX,y,tableW,subtitleH,{fontSize:10,bold:true,align:"center"});
-      y+=subtitleH;
-      doc.rect(marginX,y,tableW,dateH);
-      cellText("DATE: "+new Date().toLocaleDateString("en-GB"),marginX,y,tableW,dateH,{fontSize:9,bold:true,align:"right"});
-      y+=dateH;
-
-      let x=marginX;
-      const leftHeaders=["SL. NO","CASTING NAME","QTY","PT","PC","BAL"];
-      for(let i=0;i<6;i++){
-        doc.rect(x,y,colW[i],headerH);
-        cellText(leftHeaders[i],x,y,colW[i],headerH,{fontSize:8,bold:true,align:"center"});
-        x+=colW[i];
-      }
-      const rightStart=x;
-      const rightW=colW[6]+colW[7]+colW[8];
-      doc.rect(rightStart,y,rightW,headerH/2);
-      cellText("POWDER COATED",rightStart,y,rightW,headerH/2,{fontSize:8,bold:true,align:"center"});
-      const ry=y+headerH/2;
-      doc.rect(rightStart,ry,colW[6],headerH/2);
-      doc.rect(rightStart+colW[6],ry,colW[7],headerH/2);
-      doc.rect(rightStart+colW[6]+colW[7],ry,colW[8],headerH/2);
-      cellText("CASTING NAME",rightStart,ry,colW[6],headerH/2,{fontSize:8,bold:true,align:"center"});
-      cellText("QTY",rightStart+colW[6],ry,colW[7],headerH/2,{fontSize:8,bold:true,align:"center"});
-      cellText("REMARKS",rightStart+colW[6]+colW[7],ry,colW[8],headerH/2,{fontSize:8,bold:true,align:"center"});
-      return y+headerH;
-    }
-
-    let y=drawHeader(5);
-    let slNo=0;
-
-    balanceItems.forEach(({item,qty})=>{
-      if(y+rowH>pageH-8){
-        doc.addPage();
-        y=drawHeader(5);
-      }
-      let x=marginX;
-      // Balance quantity goes into QTY. CASTING NAME uses the item name. PT/PC/BAL remain blank.
-      const values=[String(++slNo),item.name,String(qty),"","",""];
-      for(let i=0;i<6;i++){
-        doc.rect(x,y,colW[i],rowH);
-        cellText(values[i],x,y,colW[i],rowH,{fontSize:i===1?7:8,align:i===1?"left":"center"});
-        x+=colW[i];
-      }
-      // Blank Powder Coated planning columns.
-      doc.rect(x,y,colW[6],rowH);
-      doc.rect(x+colW[6],y,colW[7],rowH);
-      doc.rect(x+colW[6]+colW[7],y,colW[8],rowH);
-      y+=rowH;
-    });
-
-    const safeDate=new Date().toISOString().slice(0,10);
-    doc.save("Powder_Coating_Balance_Stock_"+safeDate+".pdf");
-  }catch(error){
-    console.error("PDF download error:",error);
-    alert("Unable to create PDF: "+(error?.message||error));
-  }
 }
 
 function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open")}
