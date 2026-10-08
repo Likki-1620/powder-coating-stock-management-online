@@ -129,12 +129,27 @@ function closeDownloadOptions(){
 }
 
 function getBalanceDownloadRows(){
-  // Only current Powder Coating balance items (> 0) are included.
-  return ITEMS.map(item=>({
-    code:String(item.code||""),
-    name:String(item.name||""),
-    qty:Number(getPowderBalanceQuantity(item.code))||0
-  })).filter(r=>r.qty>0);
+  // Build one row per item. PT, PC and BAL are calculated from the
+  // PostgreSQL-synchronised transaction/completed history.
+  // Repeated completed entries for the same item are automatically added.
+  return ITEMS.map(item=>{
+    const code=String(item.code||"");
+    const pt=Number(getPowderReceivedQuantity(code))||0;
+    const pc=Number(getPowderCompletedQuantity(code))||0;
+    const bal=Number(getPowderBalanceQuantity(code))||0;
+
+    return {
+      code,
+      name:String(item.name||""),
+      qty:bal,
+      pt,
+      pc,
+      bal,
+      powderCoatedName:String(item.name||""),
+      powderCoatedQty:pc,
+      remarks:""
+    };
+  }).filter(r=>r.bal>0);
 }
 
 function getDownloadDate(){
@@ -179,8 +194,8 @@ function downloadBalancePDF(){
 
     // ============================================================
     // PAGE 1 - KEEP THE SAME BALANCE-STOCK FORMAT.
-    // Only fill CASTING NAME and BALANCE QUANTITY.
-    // All other cells remain blank. Zero-balance items are skipped.
+    // Fill PT, PC, BAL and the accumulated Powder Coated section.
+    // Zero-balance items are skipped.
     // ============================================================
     function drawBalancePage(){
       doc.setDrawColor(0,0,0);
@@ -217,8 +232,9 @@ function downloadBalancePDF(){
         ]
       ];
 
-      // Keep exactly 45 numbered rows like the supplied PDF.
-      // Available stock is entered only in CASTING NAME and BAL.
+      // One row per casting. Repeated completed quantities are already
+      // accumulated in r.pc, so the Powder Coated section never duplicates
+      // the same casting.
       const body=[];
       for(let i=0;i<45;i++){
         const r=rows[i];
@@ -226,12 +242,12 @@ function downloadBalancePDF(){
           String(i+1),
           r ? String(r.name||"") : "",
           r ? String(r.qty||"") : "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          ""
+          r ? String(r.pt||"") : "",
+          r ? String(r.pc||"") : "",
+          r ? String(r.bal||"") : "",
+          r ? String(r.powderCoatedName||"") : "",
+          r ? String(r.powderCoatedQty||"") : "",
+          r ? String(r.remarks||"") : ""
         ]);
       }
 
@@ -326,7 +342,17 @@ function downloadBalanceExcel(){
       ["SL. NO","CASTING NAME","QTY","PT","PC","BAL","POWDER COATED","",""],
       ["","","","","","","CASTING NAME","QTY","REMARKS"]
     ];
-    rows.forEach((r,i)=>aoa.push([i+1,r.name,r.qty,"","","","","",""]));
+    rows.forEach((r,i)=>aoa.push([
+      i+1,
+      r.name,
+      r.qty,
+      r.pt,
+      r.pc,
+      r.bal,
+      r.powderCoatedName,
+      r.powderCoatedQty,
+      r.remarks
+    ]));
 
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     ws["!merges"]=[
