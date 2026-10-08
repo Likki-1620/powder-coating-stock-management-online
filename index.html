@@ -129,9 +129,12 @@ function closeDownloadOptions(){
 }
 
 function getBalanceDownloadRows(){
-  // Build one row per item. PT, PC and BAL are calculated from the
-  // PostgreSQL-synchronised transaction/completed history.
-  // Repeated completed entries for the same item are automatically added.
+  // One row per available casting.
+  // PT = total quantity accepted from Pre Treatment.
+  // PC = total quantity completed by Powder Coating. Repeated
+  // completions for the same item are accumulated.
+  // BAL = remaining Powder Coating quantity.
+  // A completed casting remains in the report even when BAL becomes 0.
   return ITEMS.map(item=>{
     const code=String(item.code||"");
     const pt=Number(getPowderReceivedQuantity(code))||0;
@@ -145,11 +148,12 @@ function getBalanceDownloadRows(){
       pt,
       pc,
       bal,
-      powderCoatedName:String(item.name||""),
-      powderCoatedQty:pc,
+      // Only completed castings are shown in POWDER COATED.
+      powderCoatedName:pc>0 ? String(item.name||"") : "",
+      powderCoatedQty:pc>0 ? pc : "",
       remarks:""
     };
-  }).filter(r=>r.bal>0);
+  }).filter(r=>r.pt>0 || r.pc>0 || r.bal>0);
 }
 
 function getDownloadDate(){
@@ -242,9 +246,9 @@ function downloadBalancePDF(){
           String(i+1),
           r ? String(r.name||"") : "",
           r ? String(r.qty||"") : "",
-          r ? String(r.pt||"") : "",
-          r ? String(r.pc||"") : "",
-          r ? String(r.bal||"") : "",
+          r ? String(r.pt) : "",
+          r ? String(r.pc) : "",
+          r ? String(r.bal) : "",
           r ? String(r.powderCoatedName||"") : "",
           r ? String(r.powderCoatedQty||"") : "",
           r ? String(r.remarks||"") : ""
@@ -346,12 +350,12 @@ function downloadBalanceExcel(){
       i+1,
       r.name,
       r.qty,
-      r.pt,
-      r.pc,
-      r.bal,
-      r.powderCoatedName,
-      r.powderCoatedQty,
-      r.remarks
+      Number(r.pt)||0,
+      Number(r.pc)||0,
+      Number(r.bal)||0,
+      r.powderCoatedName||"",
+      r.powderCoatedQty==="" ? "" : (Number(r.powderCoatedQty)||0),
+      r.remarks||""
     ]));
 
     const ws=XLSX.utils.aoa_to_sheet(aoa);
