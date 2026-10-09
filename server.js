@@ -1,9 +1,13 @@
+
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
+const { promisify } = require("util");
+const scryptAsync = promisify(crypto.scrypt);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -28,9 +32,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-/* =========================
-   USERS
-========================= */
+/* USERS */
 
 const USERS = {
   mainadmin: {
@@ -47,9 +49,7 @@ const USERS = {
   }
 };
 
-/* =========================
-   DATABASE
-========================= */
+/* DATABASE */
 
 async function initDatabase() {
   await pool.query(`
@@ -83,14 +83,19 @@ async function initDatabase() {
       remarks TEXT DEFAULT '',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS admin_password_credentials (
+      username TEXT PRIMARY KEY,
+      password_hash TEXT NOT NULL,
+      password_salt TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   console.log("Database tables ready.");
 }
 
-/* =========================
-   AUTHENTICATION
-========================= */
+/* AUTHENTICATION */
 
 function auth(req, res, next) {
   const header = req.headers.authorization || "";
@@ -131,9 +136,7 @@ function validateItem(itemCode, itemName) {
   );
 }
 
-/* =========================
-   HEALTH CHECK
-========================= */
+/* HEALTH CHECK */
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -149,44 +152,158 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-/* =========================
-   LOGIN
-========================= */
+/* LOGIN */
 
-app.post(["/api/login", "/api/login/"], (req, res) => {
-  const { username, password } = req.body || {};
+app.post(["/api/login", "/api/login/"], async (req, res) => {
+  const username = String((req.body || {}).username || "").trim().toLowerCase();
+  const password = (req.body || {}).password;
   const user = USERS[username];
 
-  if (
-    !user ||
-    typeof password !== "string" ||
-    password !== user.password
-  ) {
+  if (!user || typeof password !== "string") {
     return res.status(401).json({
       error: "Invalid username or password."
     });
   }
 
-  const token = jwt.sign(
-    {
+  try {
+    let valid = false;
+
+    if (username === "mainadmin") {
+      const stored = await pool.query(
+        "SELECT password_hash, password_salt FROM admin_password_credentials WHERE username = $1",
+        [username]
+      );
+
+      if (stored.rows.length) {
+        const row = stored.rows[0];
+        const calculated = await scryptAsync(
+          password,
+          row.password_salt,
+          64
+        );
+        const expected = Buffer.from(row.password_hash, "hex");
+
+        valid =
+          expected.length === calculated.length &&
+          crypto.timingSafeEqual(expected, calculated);
+      } else {
+        valid = password === user.password;
+      }
+    } else {
+      valid = password === user.password;
+    }
+
+    if (!valid) {
+      return res.status(401).json({
+        error: "Invalid username or password."
+      });
+    }
+
+    const token = jwt.sign(
+      { username, name: user.name },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      success: true,
+      token,
       username,
       name: user.name
-    },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-
-  res.json({
-    success: true,
-    token,
-    username,
-    name: user.name
-  });
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({
+      error: "Unable to log in right now."
+    });
+  }
 });
 
-/* =========================
-   GET ALL STOCK DATA
-========================= */
+/* MAIN ADMIN CHANGE PASSWORD */
+
+app.post(
+  "/api/admin/change-password",
+  auth,
+  allowUsers("mainadmin"),
+  async (req, res) => {
+    const currentPassword = req.body && req.body.currentPassword;
+    const newPassword = req.body && req.body.newPassword;
+
+    if (
+      typeof currentPassword !== "string" ||
+      typeof newPassword !== "string" ||
+      newPassword.length < 8
+    ) {
+      return res.status(400).json({
+        error: "Enter your current password and a new password of at least 8 characters."
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        error: "New password must be different from the current password."
+      });
+    }
+
+    try {
+      const stored = await pool.query(
+        "SELECT password_hash, password_salt FROM admin_password_credentials WHERE username = $1",
+        ["mainadmin"]
+      );
+
+      let currentValid = false;
+
+      if (stored.rows.length) {
+        const row = stored.rows[0];
+        const calculated = await scryptAsync(
+          currentPassword,
+          row.password_salt,
+          64
+        );
+        const expected = Buffer.from(row.password_hash, "hex");
+
+        currentValid =
+          expected.length === calculated.length &&
+          crypto.timingSafeEqual(expected, calculated);
+      } else {
+        currentValid = currentPassword === USERS.mainadmin.password;
+      }
+
+      if (!currentValid) {
+        return res.status(401).json({
+          error: "Current password is incorrect."
+        });
+      }
+
+      const salt = crypto.randomBytes(16).toString("hex");
+      const hash = (
+        await scryptAsync(newPassword, salt, 64)
+      ).toString("hex");
+
+      await pool.query(`
+        INSERT INTO admin_password_credentials
+          (username, password_hash, password_salt, updated_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (username) DO UPDATE SET
+          password_hash = EXCLUDED.password_hash,
+          password_salt = EXCLUDED.password_salt,
+          updated_at = NOW()
+      `, ["mainadmin", hash, salt]);
+
+      return res.json({
+        success: true,
+        message: "Password changed successfully."
+      });
+    } catch (error) {
+      console.error("Password change error:", error);
+      return res.status(500).json({
+        error: "Unable to change password right now."
+      });
+    }
+  }
+);
+
+/* GET ALL STOCK DATA */
 
 app.get("/api/data", auth, async (req, res) => {
   try {
@@ -232,13 +349,13 @@ app.get("/api/data", auth, async (req, res) => {
     });
   } catch (error) {
     console.error("Get data error:", error);
-    res.status(500).json({ error: "Unable to load stock data." });
+    res.status(500).json({
+      error: "Unable to load stock data."
+    });
   }
 });
 
-/* =========================
-   NOTIFICATIONS
-========================= */
+/* NOTIFICATIONS */
 
 app.get("/api/notifications", auth, async (req, res) => {
   if (!["powdercoating", "mainadmin"].includes(req.user.username)) {
@@ -249,7 +366,9 @@ app.get("/api/notifications", auth, async (req, res) => {
   const since = sinceRaw ? new Date(sinceRaw) : new Date();
 
   if (Number.isNaN(since.getTime())) {
-    return res.status(400).json({ error: "Invalid notification time." });
+    return res.status(400).json({
+      error: "Invalid notification time."
+    });
   }
 
   try {
@@ -270,62 +389,55 @@ app.get("/api/notifications", auth, async (req, res) => {
     res.json({ notifications: result.rows });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Unable to load notifications." });
+    res.status(500).json({
+      error: "Unable to load notifications."
+    });
   }
 });
 
-/* =========================
-   ADD ITEM CODE
-========================= */
+/* ADD ITEM CODE */
 
-app.post(
-  "/api/items",
-  auth,
-  allowUsers("mainadmin"),
-  async (req, res) => {
-    const { itemCode, itemName } = req.body || {};
+app.post("/api/items", auth, allowUsers("mainadmin"), async (req, res) => {
+  const { itemCode, itemName } = req.body || {};
 
-    if (!validateItem(itemCode, itemName)) {
-      return res.status(400).json({
-        error: "Item code and item name are required."
+  if (!validateItem(itemCode, itemName)) {
+    return res.status(400).json({
+      error: "Item code and item name are required."
+    });
+  }
+
+  const code = itemCode.trim();
+  const name = itemName.trim();
+
+  try {
+    const result = await pool.query(`
+      INSERT INTO items (item_code, item_name)
+      VALUES ($1, $2)
+      ON CONFLICT (item_code) DO NOTHING
+      RETURNING item_code AS "itemCode",
+                item_name AS "itemName"
+    `, [code, name]);
+
+    if (result.rowCount === 0) {
+      return res.status(409).json({
+        error: "Item code already exists."
       });
     }
 
-    const code = itemCode.trim();
-    const name = itemName.trim();
+    await pool.query(`
+      INSERT INTO stock (item_code, quantity)
+      VALUES ($1, 0)
+      ON CONFLICT (item_code) DO NOTHING
+    `, [code]);
 
-    try {
-      const result = await pool.query(`
-        INSERT INTO items (item_code, item_name)
-        VALUES ($1, $2)
-        ON CONFLICT (item_code) DO NOTHING
-        RETURNING item_code AS "itemCode",
-                  item_name AS "itemName"
-      `, [code, name]);
-
-      if (result.rowCount === 0) {
-        return res.status(409).json({
-          error: "Item code already exists."
-        });
-      }
-
-      await pool.query(`
-        INSERT INTO stock (item_code, quantity)
-        VALUES ($1, 0)
-        ON CONFLICT (item_code) DO NOTHING
-      `, [code]);
-
-      res.json({ success: true, ...result.rows[0] });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Unable to add item." });
-    }
+    res.json({ success: true, ...result.rows[0] });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Unable to add item." });
   }
-);
+});
 
-/* =========================
-   ADD PRE TREATMENT STOCK
-========================= */
+/* ADD PRE TREATMENT STOCK */
 
 app.post(
   "/api/stock/add",
@@ -384,9 +496,7 @@ app.post(
   }
 );
 
-/* =========================
-   SEND STOCK TO POWDER COATING
-========================= */
+/* SEND STOCK TO POWDER COATING */
 
 app.post(
   "/api/stock/send",
@@ -421,7 +531,9 @@ app.post(
 
       if (result.rowCount === 0) {
         await client.query("ROLLBACK");
-        return res.status(404).json({ error: "Item stock not found." });
+        return res.status(404).json({
+          error: "Item stock not found."
+        });
       }
 
       const available = Number(result.rows[0].quantity);
@@ -462,9 +574,7 @@ app.post(
   }
 );
 
-/* =========================
-   ACCEPT PENDING RECEIPT
-========================= */
+/* ACCEPT PENDING RECEIPT */
 
 app.post(
   "/api/stock/accept-receipt",
@@ -517,16 +627,16 @@ app.post(
     } catch (error) {
       await client.query("ROLLBACK");
       console.error(error);
-      res.status(500).json({ error: "Unable to accept receipt." });
+      res.status(500).json({
+        error: "Unable to accept receipt."
+      });
     } finally {
       client.release();
     }
   }
 );
 
-/* =========================
-   EDIT POWDER COATING BALANCE
-========================= */
+/* EDIT POWDER COATING BALANCE */
 
 app.post(
   "/api/stock/edit",
@@ -607,9 +717,7 @@ app.post(
   }
 );
 
-/* =========================
-   POWDER COATING COMPLETED STOCK
-========================= */
+/* POWDER COATING COMPLETED STOCK */
 
 app.post(
   "/api/stock/complete",
@@ -687,16 +795,16 @@ app.post(
     } catch (error) {
       await client.query("ROLLBACK");
       console.error(error);
-      res.status(500).json({ error: "Unable to save completed stock." });
+      res.status(500).json({
+        error: "Unable to save completed stock."
+      });
     } finally {
       client.release();
     }
   }
 );
 
-/* =========================
-   SERVE WEBSITE
-========================= */
+/* SERVE WEBSITE */
 
 app.use(express.static(__dirname));
 
@@ -704,7 +812,8 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-/* Express 5 fallback: return index.html for website routes */
+/* Express 5 fallback */
+
 app.get("/{*splat}", (req, res, next) => {
   const indexFile = path.join(__dirname, "index.html");
 
@@ -719,9 +828,7 @@ app.get("/{*splat}", (req, res, next) => {
   });
 });
 
-/* =========================
-   ERROR HANDLER
-========================= */
+/* ERROR HANDLER */
 
 app.use((error, req, res, next) => {
   console.error("Server error:", error);
@@ -735,9 +842,7 @@ app.use((error, req, res, next) => {
   });
 });
 
-/* =========================
-   START SERVER
-========================= */
+/* START SERVER */
 
 initDatabase()
   .then(() => {
