@@ -1799,26 +1799,41 @@ function renderPowderStock(){
   });
 }
 
-function renderCompleted(){
-  const tbody=document.getElementById("completedTable");
-  if(!tbody)return;
-  tbody.innerHTML="";
-  const search=(document.getElementById("completedHistorySearch")?.value||"").trim().toLowerCase();
-  const rows=completed.filter(r=>
-    String(r.itemCode||"").toLowerCase().includes(search)||
-    String(r.itemName||"").toLowerCase().includes(search)
-  ).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||Number(b.id||0)-Number(a.id||0));
-  if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px">No completed stock history found</td></tr>';
-    return;
-  }
-  rows.forEach((r,i)=>{
-    const row=document.createElement("tr");
-    row.innerHTML="<td>"+(i+1)+"</td><td>"+escapeHtml(String(r.itemCode||""))+"</td><td>"+escapeHtml(String(r.itemName||""))+"</td><td>"+(Number(r.quantity)||0)+"</td><td>"+escapeHtml(String(r.date||""))+"</td><td>"+escapeHtml(String(r.time||""))+"</td>";
-    tbody.appendChild(row);
-  });
-}
+  function renderCompleted() {
+    const tbody = document.getElementById("completedTable");
+    if (!tbody) return;
 
+    tbody.innerHTML = "";
+
+    if (!completed || completed.length === 0) {
+        tbody.innerHTML =
+            '<tr><td colspan="9">No completed stock records found</td></tr>';
+        return;
+    }
+
+    completed.forEach((t, i) => {
+        const booth = t.boothNo || t.booth_no || "";
+        const colour = t.colour || t.color || "";
+        const remarks = t.remarks || "";
+        const date = t.date || "";
+        const time = t.time || "";
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${i + 1}</td>
+                <td>${t.itemCode || t.item_code || ""}</td>
+                <td>${t.itemName || t.item_name || ""}</td>
+                <td>${t.quantity || 0}</td>
+                <td>${booth}</td>
+                <td>${colour}</td>
+                <td>${remarks}</td>
+                <td>${date}</td>
+                <td>${time}</td>
+            </tr>
+        `;
+    });
+}
+  
 function total(data){return Object.values(data).reduce((s,v)=>s+Number(v||0),0)}
 
 function refreshDashboard(){
