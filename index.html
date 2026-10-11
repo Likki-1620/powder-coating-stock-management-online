@@ -1815,7 +1815,13 @@ function renderPowderStock(){
         const booth = t.boothNo || t.booth_no || "";
         const colour = t.colour || t.color || "";
         const remarks = t.remarks || "";
-        const date = t.date || "";
+        const date = (() => {
+        const v = t.date || t.created_at || t.createdAt || "";
+        if (!v) return "";
+        const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+        return v;
+        })();
         const time = t.time || "";
 
         tbody.innerHTML += `
