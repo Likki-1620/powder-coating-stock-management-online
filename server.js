@@ -899,27 +899,59 @@ app.post(
       itemCode,
       itemName,
       quantity,
+      boothNo,
+      colour,
       remarks
     } = req.body || {};
 
     const qty = Number(quantity);
+    const booth = String(boothNo || "").trim();
+    const selectedColour = String(colour || "").trim();
+    const note = String(remarks || "").trim();
 
-    if (
-      !validateItem(itemCode, itemName) ||
-      !Number.isFinite(qty) ||
-      qty <= 0
-    ) {
+    const validBooths = ["1", "2", "3", "4", "5", "6", "DL"];
+    const validColours = [
+      "IGP Blue",
+      "IGP Grey",
+      "Sky Blue",
+      "White",
+      "Black",
+      "Mint Green",
+      "ABB Grey",
+      "GP Black",
+      "Sparkle Silver",
+      "Strom Grey",
+      "Ral 7001",
+      "Ral 7044"
+    ];
+
+    if (!validateItem(itemCode, itemName) ||
+        !Number.isFinite(qty) || qty <= 0) {
       return res.status(400).json({
         error: "Enter a valid item and quantity."
+      });
+    }
+
+    if (!validBooths.includes(booth)) {
+      return res.status(400).json({
+        error: "Please select a valid Booth No. or DL."
+      });
+    }
+
+    if (!validColours.includes(selectedColour)) {
+      return res.status(400).json({
+        error: "Please select a valid colour."
       });
     }
 
     const code = itemCode.trim();
     const name = itemName.trim();
     const client = await pool.connect();
+    let transactionStarted = false;
 
     try {
       await client.query("BEGIN");
+      transactionStarted = true;
 
       const receivedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
@@ -941,17 +973,9 @@ app.post(
           AND type = 'EDIT_POWDER_STOCK'
       `, [code]);
 
-      const received = Number(
-        receivedResult.rows[0].total
-      );
-
-      const completed = Number(
-        completedResult.rows[0].total
-      );
-
-      const edited = Number(
-        editedResult.rows[0].total
-      );
+      const received = Number(receivedResult.rows[0].total);
+      const completed = Number(completedResult.rows[0].total);
+      const edited = Number(editedResult.rows[0].total);
 
       const balance = Math.max(
         0,
@@ -960,37 +984,41 @@ app.post(
 
       if (qty > balance) {
         await client.query("ROLLBACK");
+        transactionStarted = false;
 
         return res.status(400).json({
-          error:
-            "Insufficient balance. Available quantity: " +
-            balance
+          error: "Insufficient balance. Available quantity: " + balance
         });
       }
 
       await client.query(`
         INSERT INTO completed_stock
-          (item_code, item_name, quantity, remarks)
-        VALUES ($1, $2, $3, $4)
-      `, [code, name, qty, remarks || ""]);
+          (item_code, item_name, quantity, booth_no, colour, remarks)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [code, name, qty, booth, selectedColour, note]);
 
       await client.query(`
         INSERT INTO transactions
           (item_code, item_name, quantity, type, remarks)
         VALUES ($1, $2, $3, 'POWDER_COMPLETED', $4)
-      `, [code, name, qty, remarks || ""]);
+      `, [code, name, qty, note]);
 
       await client.query("COMMIT");
+      transactionStarted = false;
 
-      res.json({
+      return res.json({
         success: true,
         balance: balance - qty
       });
-    } catch (error) {
-      await client.query("ROLLBACK");
-      console.error(error);
 
-      res.status(500).json({
+    } catch (error) {
+      if (transactionStarted) {
+        await client.query("ROLLBACK");
+      }
+
+      console.error("Complete stock error:", error);
+
+      return res.status(500).json({
         error: "Unable to save completed stock."
       });
     } finally {
