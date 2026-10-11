@@ -734,7 +734,7 @@ app.post(
   }
 );
 
-/* POWDER COATING COMPLETED STOCK — OPERATOR NAME ADDED */
+/* POWDER COATING COMPLETED STOCK */
 
 app.post(
   "/api/stock/complete",
@@ -846,6 +846,7 @@ app.post(
       if (qty > balance) {
         await client.query("ROLLBACK");
         transactionStarted = false;
+
         return res.status(400).json({
           error: "Insufficient balance. Available quantity: " + balance
         });
@@ -882,9 +883,66 @@ app.post(
       if (transactionStarted) {
         await client.query("ROLLBACK");
       }
+
       console.error("Complete stock error:", error);
+
       res.status(500).json({
         error: "Unable to save completed stock."
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
+
+/* MAIN ADMIN — CLEAR ALL STOCK DATA
+   Preserves item codes, item names, accounts and admin password.
+*/
+
+app.post(
+  "/api/admin/reset-stock",
+  auth,
+  allowUsers("mainadmin"),
+  async (req, res) => {
+    if (req.body?.confirmation !== "CLEAR ALL STOCK DATA") {
+      return res.status(400).json({
+        error: 'Confirmation text must be "CLEAR ALL STOCK DATA".'
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Permanently delete all stock transaction history.
+      await client.query("DELETE FROM transactions");
+
+      // Permanently delete all completed stock records.
+      await client.query("DELETE FROM completed_stock");
+
+      // Set every existing item balance to zero.
+      await client.query(`
+        INSERT INTO stock (item_code, quantity)
+        SELECT item_code, 0
+        FROM items
+        ON CONFLICT (item_code)
+        DO UPDATE SET quantity = 0
+      `);
+
+      await client.query("COMMIT");
+
+      res.json({
+        success: true,
+        message:
+          "All stock data cleared. Item codes, item names, login accounts and admin password are preserved."
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Stock reset error:", error);
+
+      res.status(500).json({
+        error: "Unable to clear stock data."
       });
     } finally {
       client.release();
