@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -126,6 +125,7 @@ function allowUsers(...usernames) {
         error: "You do not have permission to perform this action."
       });
     }
+
     next();
   };
 }
@@ -161,6 +161,7 @@ app.post(["/api/login", "/api/login/"], async (req, res) => {
   const username = String(req.body?.username || "")
     .trim()
     .toLowerCase();
+
   const password = req.body?.password;
   const user = USERS[username];
 
@@ -183,11 +184,13 @@ app.post(["/api/login", "/api/login/"], async (req, res) => {
 
       if (stored.rows.length) {
         const row = stored.rows[0];
+
         const calculated = await scryptAsync(
           password,
           row.password_salt,
           64
         );
+
         const expected = Buffer.from(row.password_hash, "hex");
 
         valid =
@@ -220,6 +223,7 @@ app.post(["/api/login", "/api/login/"], async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
+
     res.status(500).json({
       error: "Unable to log in right now."
     });
@@ -241,7 +245,8 @@ app.post(
       newPassword.length < 8
     ) {
       return res.status(400).json({
-        error: "Enter your current password and a new password of at least 8 characters."
+        error:
+          "Enter your current password and a new password of at least 8 characters."
       });
     }
 
@@ -263,11 +268,13 @@ app.post(
 
       if (stored.rows.length) {
         const row = stored.rows[0];
+
         const calculated = await scryptAsync(
           currentPassword,
           row.password_salt,
           64
         );
+
         const expected = Buffer.from(row.password_hash, "hex");
 
         currentValid =
@@ -284,6 +291,7 @@ app.post(
       }
 
       const salt = crypto.randomBytes(16).toString("hex");
+
       const hash = (
         await scryptAsync(newPassword, salt, 64)
       ).toString("hex");
@@ -304,6 +312,7 @@ app.post(
       });
     } catch (error) {
       console.error("Password change error:", error);
+
       res.status(500).json({
         error: "Unable to change password right now."
       });
@@ -361,6 +370,7 @@ app.get("/api/data", auth, async (req, res) => {
     });
   } catch (error) {
     console.error("Get data error:", error);
+
     res.status(500).json({
       error: "Unable to load stock data."
     });
@@ -402,6 +412,7 @@ app.get("/api/notifications", auth, async (req, res) => {
     res.json({ notifications: result.rows });
   } catch (error) {
     console.error(error);
+
     res.status(500).json({
       error: "Unable to load notifications."
     });
@@ -410,51 +421,57 @@ app.get("/api/notifications", auth, async (req, res) => {
 
 /* ADD ITEM CODE */
 
-app.post("/api/items", auth, allowUsers("mainadmin"), async (req, res) => {
-  const { itemCode, itemName } = req.body || {};
+app.post(
+  "/api/items",
+  auth,
+  allowUsers("mainadmin"),
+  async (req, res) => {
+    const { itemCode, itemName } = req.body || {};
 
-  if (!validateItem(itemCode, itemName)) {
-    return res.status(400).json({
-      error: "Item code and item name are required."
-    });
-  }
-
-  const code = itemCode.trim();
-  const name = itemName.trim();
-
-  try {
-    const result = await pool.query(`
-      INSERT INTO items (item_code, item_name)
-      VALUES ($1, $2)
-      ON CONFLICT (item_code) DO NOTHING
-      RETURNING item_code AS "itemCode", item_name AS "itemName"
-    `, [code, name]);
-
-    if (!result.rowCount) {
-      return res.status(409).json({
-        error: "Item code already exists."
+    if (!validateItem(itemCode, itemName)) {
+      return res.status(400).json({
+        error: "Item code and item name are required."
       });
     }
 
-    await pool.query(`
-      INSERT INTO stock (item_code, quantity)
-      VALUES ($1, 0)
-      ON CONFLICT (item_code) DO NOTHING
-    `, [code]);
+    const code = itemCode.trim();
+    const name = itemName.trim();
 
-    res.json({ success: true, ...result.rows[0] });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Unable to add item." });
+    try {
+      const result = await pool.query(`
+        INSERT INTO items (item_code, item_name)
+        VALUES ($1, $2)
+        ON CONFLICT (item_code) DO NOTHING
+        RETURNING item_code AS "itemCode",
+                  item_name AS "itemName"
+      `, [code, name]);
+
+      if (!result.rowCount) {
+        return res.status(409).json({
+          error: "Item code already exists."
+        });
+      }
+
+      await pool.query(`
+        INSERT INTO stock (item_code, quantity)
+        VALUES ($1, 0)
+        ON CONFLICT (item_code) DO NOTHING
+      `, [code]);
+
+      res.json({ success: true, ...result.rows[0] });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Unable to add item." });
+    }
   }
-});
+);
 
-/* ADD PRE TREATMENT STOCK */
+/* ADD STOCK — PRE TREATMENT AND POWDER COATING */
 
 app.post(
   "/api/stock/add",
   auth,
-  allowUsers("pretreatment", "mainadmin"),
+  allowUsers("pretreatment", "powdercoating", "mainadmin"),
   async (req, res) => {
     const { itemCode, itemName, quantity, remarks } = req.body || {};
     const qty = Number(quantity);
@@ -542,8 +559,10 @@ app.post(
       await client.query("BEGIN");
 
       const result = await client.query(`
-        SELECT quantity FROM stock
-        WHERE item_code = $1 FOR UPDATE
+        SELECT quantity
+        FROM stock
+        WHERE item_code = $1
+        FOR UPDATE
       `, [code]);
 
       if (!result.rowCount) {
@@ -563,7 +582,8 @@ app.post(
       }
 
       await client.query(`
-        UPDATE stock SET quantity = quantity - $1
+        UPDATE stock
+        SET quantity = quantity - $1
         WHERE item_code = $2
       `, [qty, code]);
 
@@ -654,7 +674,7 @@ app.post(
   }
 );
 
-/* EDIT POWDER COATING BALANCE */
+/* EDIT POWDER COATING BALANCE — MAIN ADMIN ONLY */
 
 app.post(
   "/api/stock/edit",
@@ -689,7 +709,8 @@ app.post(
 
       const completedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
-        FROM completed_stock WHERE item_code = $1
+        FROM completed_stock
+        WHERE item_code = $1
       `, [code]);
 
       const editedResult = await client.query(`
@@ -758,6 +779,7 @@ app.post(
     const note = String(remarks || "").trim();
 
     const validBooths = ["1", "2", "3", "4", "5", "6", "DL"];
+
     const validColours = [
       "IGP Blue",
       "IGP Grey",
@@ -772,6 +794,7 @@ app.post(
       "Ral 7001",
       "Ral 7044"
     ];
+
     const validOperators = [
       "Suresh",
       "Anji",
@@ -829,7 +852,8 @@ app.post(
 
       const completedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
-        FROM completed_stock WHERE item_code = $1
+        FROM completed_stock
+        WHERE item_code = $1
       `, [code]);
 
       const editedResult = await client.query(`
@@ -895,14 +919,12 @@ app.post(
   }
 );
 
-/* MAIN ADMIN — CLEAR ALL STOCK DATA
-   Preserves item codes, item names, accounts and admin password.
-*/
+/* CLEAR ALL STOCK — POWDER COATING LOGIN ONLY */
 
 app.post(
   "/api/admin/reset-stock",
   auth,
-  allowUsers("mainadmin"),
+  allowUsers("powdercoating"),
   async (req, res) => {
     if (req.body?.confirmation !== "CLEAR ALL STOCK DATA") {
       return res.status(400).json({
@@ -915,13 +937,13 @@ app.post(
     try {
       await client.query("BEGIN");
 
-      // Permanently delete all stock transaction history.
+      // Remove all transaction history.
       await client.query("DELETE FROM transactions");
 
-      // Permanently delete all completed stock records.
+      // Remove all completed-stock records.
       await client.query("DELETE FROM completed_stock");
 
-      // Set every existing item balance to zero.
+      // Preserve item codes and names, but reset every balance to zero.
       await client.query(`
         INSERT INTO stock (item_code, quantity)
         SELECT item_code, 0
@@ -935,7 +957,7 @@ app.post(
       res.json({
         success: true,
         message:
-          "All stock data cleared. Item codes, item names, login accounts and admin password are preserved."
+          "All stock data cleared. Item codes, item names, and login accounts are preserved."
       });
     } catch (error) {
       await client.query("ROLLBACK");
