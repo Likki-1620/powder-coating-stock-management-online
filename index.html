@@ -679,29 +679,125 @@ function downloadBalanceExcel(){
     </div>
   </section>
 
-  <section class="page" id="completedStock">
-    <div class="panel"><h2>✅ Powder Coating Completed Stock</h2>
-      <div class="form-group" style="margin-bottom:14px">
-        <label>🔎 Search by Item Code or Item Name</label>
-        <input type="search" id="completeItemSearch" autocomplete="off" placeholder="🔎 Type Item Code or Item Name" oninput="searchCompleteItem()">
-        <div id="completeItemSearchResults" class="item-search-results"></div>
-      </div>
-      <div class="form-grid">
-        <div class="form-group"><label>Item Code</label><input id="completeItemCode" type="text" readonly placeholder="Item Code will come automatically"></div>
-        <div class="form-group"><label>Item Name</label><input id="completeItemName" readonly placeholder="Item Name will come automatically"></div>
-        <div class="form-group"><label>Balance Quantity</label><input id="completeBalanceQty" readonly placeholder="Balance stock"></div>
-        <div class="form-group"><label>Completed Quantity</label><input type="number" id="completeQty" min="1" step="any" placeholder="Enter quantity"></div>
-      </div>
-      <button class="primary-btn success-btn" onclick="completeStock()">✅ Save Completed Stock</button>
-      <div class="small-note">Search by Item Code or Item Name → tap the correct item → Item Code, Item Name and Balance Quantity will appear automatically.</div>
-    </div>
-    <div class="panel"><h2>Completed Stock History</h2>
-      <input class="search" id="completedHistorySearch" type="search" autocomplete="off" oninput="renderCompleted()" placeholder="🔎 Type Item Code or Item Name...">
-      <div class="table-wrap"><table><thead><tr><th>Sl No</th><th>Item Code</th><th>Item Name</th><th>Quantity</th><th>Date</th><th>Time</th></tr></thead><tbody id="completedTable"></tbody></table></div>
-    </div>
-  </section>
+<section class="page" id="completedStock">
+  <div class="panel">
+    <h2>✅ Powder Coating Completed Stock</h2>
 
+    <div class="form-group" style="margin-bottom:14px">
+      <label>🔎 Search by Item Code or Item Name</label>
+      <input type="search" id="completeItemSearch"
+        autocomplete="off"
+        placeholder="🔎 Type Item Code or Item Name"
+        oninput="searchCompleteItem()">
+      <div id="completeItemSearchResults"
+        class="item-search-results"></div>
+    </div>
 
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Item Code</label>
+        <input id="completeItemCode" type="text" readonly
+          placeholder="Item Code will come automatically">
+      </div>
+
+      <div class="form-group">
+        <label>Item Name</label>
+        <input id="completeItemName" readonly
+          placeholder="Item Name will come automatically">
+      </div>
+
+      <div class="form-group">
+        <label>Balance Quantity</label>
+        <input id="completeBalanceQty" readonly
+          placeholder="Balance stock">
+      </div>
+
+      <div class="form-group">
+        <label>Completed Quantity</label>
+        <input type="number" id="completeQty"
+          min="1" step="any" placeholder="Enter quantity">
+      </div>
+
+      <div class="form-group">
+        <label>Booth No.</label>
+        <select id="completeBoothNo">
+          <option value="">Select Booth No.</option>
+          <option value="1">Booth 1</option>
+          <option value="2">Booth 2</option>
+          <option value="3">Booth 3</option>
+          <option value="4">Booth 4</option>
+          <option value="5">Booth 5</option>
+          <option value="6">Booth 6</option>
+          <option value="DL">DL</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Colour</label>
+        <select id="completeColour">
+          <option value="">Select Colour</option>
+          <option value="IGP Blue">IGP Blue</option>
+          <option value="IGP Grey">IGP Grey</option>
+          <option value="Sky Blue">Sky Blue</option>
+          <option value="White">White</option>
+          <option value="Black">Black</option>
+          <option value="Mint Green">Mint Green</option>
+          <option value="ABB Grey">ABB Grey</option>
+          <option value="GP Black">GP Black</option>
+          <option value="Sparkle Silver">Sparkle Silver</option>
+          <option value="Strom Grey">Strom Grey</option>
+          <option value="Ral 7001">Ral 7001</option>
+          <option value="Ral 7044">Ral 7044</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Remarks</label>
+        <input type="text" id="completeRemarks"
+          placeholder="Enter remarks">
+      </div>
+    </div>
+
+    <button class="primary-btn success-btn"
+      onclick="completeStock()">
+      ✅ Save Completed Stock
+    </button>
+
+    <div class="small-note">
+      Search by Item Code or Item Name and select the correct item.
+      Item Code, Item Name and Balance Quantity will appear automatically.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Completed Stock History</h2>
+
+    <input class="search" id="completedHistorySearch"
+      type="search" autocomplete="off"
+      oninput="renderCompleted()"
+      placeholder="🔎 Type Item Code or Item Name...">
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Sl No</th>
+            <th>Item Code</th>
+            <th>Item Name</th>
+            <th>Quantity</th>
+            <th>Booth No.</th>
+            <th>Colour</th>
+            <th>Remarks</th>
+            <th>Date</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="completedTable"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+  
 <!-- Powder Coating Download Options -->
 <div id="downloadModal" onclick="closeDownloadOnBackdrop(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;padding:20px;">
   <div style="background:#fff;width:100%;max-width:380px;border-radius:16px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.2);">
@@ -1383,27 +1479,85 @@ async function sendStock(){
 }
 
 async function completeStock(){
-  const code=String(document.getElementById("completeItemCode")?.value||"").trim();
-  const qty=Number(document.getElementById("completeQty")?.value);
-  const item=ITEMS.find(x=>String(x.code).trim()===code);
-  const available=getPowderBalanceQuantity(code);
+  const code = String(
+    document.getElementById("completeItemCode")?.value || ""
+  ).trim();
 
-  if(!item){ alert("Please select an Item Code first."); return; }
-  if(!Number.isFinite(qty)||qty<=0){ alert("Please enter a valid quantity."); return; }
-  if(qty>available){ alert("Insufficient Powder Coating stock. Available: "+available); return; }
+  const qty = Number(
+    document.getElementById("completeQty")?.value
+  );
+
+  const boothNo = String(
+    document.getElementById("completeBoothNo")?.value || ""
+  ).trim();
+
+  const colour = String(
+    document.getElementById("completeColour")?.value || ""
+  ).trim();
+
+  const remarks = String(
+    document.getElementById("completeRemarks")?.value || ""
+  ).trim();
+
+  const item = ITEMS.find(
+    x => String(x.code).trim() === code
+  );
+
+  const available = getPowderBalanceQuantity(code);
+
+  if(!item){
+    alert("Please select an Item Code first.");
+    return;
+  }
+
+  if(!Number.isFinite(qty) || qty <= 0){
+    alert("Please enter a valid quantity.");
+    return;
+  }
+
+  if(qty > available){
+    alert("Insufficient Powder Coating stock. Available: " + available);
+    return;
+  }
+
+  if(!boothNo){
+    alert("Please select Booth No. or DL.");
+    return;
+  }
+
+  if(!colour){
+    alert("Please select a Colour.");
+    return;
+  }
 
   try{
-    await apiFetch("/api/stock/complete",{
-      method:"POST",
-      body:{itemCode:item.code,itemName:item.name,quantity:qty,remarks:""}
+    await apiFetch("/api/stock/complete", {
+      method: "POST",
+      body: {
+        itemCode: item.code,
+        itemName: item.name,
+        quantity: qty,
+        boothNo: boothNo,
+        colour: colour,
+        remarks: remarks
+      }
     });
-    await loadServerData();
-    document.getElementById("completeQty").value="";
-    alert(qty+" "+item.name+" marked as completed.");
-  }catch(error){ alert("Unable to complete stock: "+error.message); }
-}
 
-function isToday(value){
+    await loadServerData();
+
+    document.getElementById("completeQty").value = "";
+    document.getElementById("completeBoothNo").value = "";
+    document.getElementById("completeColour").value = "";
+    document.getElementById("completeRemarks").value = "";
+
+    alert(qty + " " + item.name + " marked as completed.");
+
+  }catch(error){
+    alert("Unable to complete stock: " + error.message);
+  }
+}
+  
+  function isToday(value){
   if(!value)return false;
   const d=new Date(value);
   const now=new Date();
