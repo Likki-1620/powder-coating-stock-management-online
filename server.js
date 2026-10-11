@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -15,25 +16,17 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const DATABASE_URL = process.env.DATABASE_URL;
 
-if (!JWT_SECRET) {
-  console.error("ERROR: Set JWT_SECRET in Render Environment Variables.");
-  process.exit(1);
-}
-
-if (!process.env.DATABASE_URL) {
-  console.error("ERROR: DATABASE_URL is missing.");
+if (!JWT_SECRET || !DATABASE_URL) {
+  console.error("ERROR: Set JWT_SECRET and DATABASE_URL in Render.");
   process.exit(1);
 }
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
-
-/* =========================
-   USERS
-========================= */
 
 const USERS = {
   mainadmin: {
@@ -49,10 +42,6 @@ const USERS = {
     name: "Powder Coating"
   }
 };
-
-/* =========================
-   DATABASE
-========================= */
 
 async function initDatabase() {
   await pool.query(`
@@ -85,6 +74,7 @@ async function initDatabase() {
       quantity NUMERIC NOT NULL,
       booth_no TEXT DEFAULT '',
       colour TEXT DEFAULT '',
+      operator_name TEXT DEFAULT '',
       remarks TEXT DEFAULT '',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -105,23 +95,18 @@ async function initDatabase() {
   await pool.query(`
     ALTER TABLE completed_stock
     ADD COLUMN IF NOT EXISTS booth_no TEXT DEFAULT '',
-    ADD COLUMN IF NOT EXISTS colour TEXT DEFAULT ''
+    ADD COLUMN IF NOT EXISTS colour TEXT DEFAULT '',
+    ADD COLUMN IF NOT EXISTS operator_name TEXT DEFAULT ''
   `);
 
   console.log("Database tables ready.");
 }
 
-/* =========================
-   AUTHENTICATION
-========================= */
-
 function auth(req, res, next) {
   const header = req.headers.authorization || "";
 
   if (!header.startsWith("Bearer ")) {
-    return res.status(401).json({
-      error: "Login required."
-    });
+    return res.status(401).json({ error: "Login required." });
   }
 
   try {
@@ -141,7 +126,6 @@ function allowUsers(...usernames) {
         error: "You do not have permission to perform this action."
       });
     }
-
     next();
   };
 }
@@ -155,21 +139,14 @@ function validateItem(itemCode, itemName) {
   );
 }
 
-/* =========================
-   HEALTH CHECK
-========================= */
+/* HEALTH CHECK */
 
 app.get("/api/health", async (req, res) => {
   try {
     await pool.query("SELECT 1");
-
-    res.json({
-      ok: true,
-      database: true
-    });
+    res.json({ ok: true, database: true });
   } catch (error) {
     console.error(error);
-
     res.status(500).json({
       ok: false,
       database: false,
@@ -178,16 +155,13 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-/* =========================
-   LOGIN
-========================= */
+/* LOGIN */
 
 app.post(["/api/login", "/api/login/"], async (req, res) => {
-  const username = String(
-    (req.body || {}).username || ""
-  ).trim().toLowerCase();
-
-  const password = (req.body || {}).password;
+  const username = String(req.body?.username || "")
+    .trim()
+    .toLowerCase();
+  const password = req.body?.password;
   const user = USERS[username];
 
   if (!user || typeof password !== "string") {
@@ -209,17 +183,12 @@ app.post(["/api/login", "/api/login/"], async (req, res) => {
 
       if (stored.rows.length) {
         const row = stored.rows[0];
-
         const calculated = await scryptAsync(
           password,
           row.password_salt,
           64
         );
-
-        const expected = Buffer.from(
-          row.password_hash,
-          "hex"
-        );
+        const expected = Buffer.from(row.password_hash, "hex");
 
         valid =
           expected.length === calculated.length &&
@@ -238,15 +207,12 @@ app.post(["/api/login", "/api/login/"], async (req, res) => {
     }
 
     const token = jwt.sign(
-      {
-        username,
-        name: user.name
-      },
+      { username, name: user.name },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    return res.json({
+    res.json({
       success: true,
       token,
       username,
@@ -254,27 +220,20 @@ app.post(["/api/login", "/api/login/"], async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
-
-    return res.status(500).json({
+    res.status(500).json({
       error: "Unable to log in right now."
     });
   }
 });
 
-/* =========================
-   MAIN ADMIN CHANGE PASSWORD
-========================= */
+/* MAIN ADMIN CHANGE PASSWORD */
 
 app.post(
   "/api/admin/change-password",
   auth,
   allowUsers("mainadmin"),
   async (req, res) => {
-    const currentPassword =
-      req.body && req.body.currentPassword;
-
-    const newPassword =
-      req.body && req.body.newPassword;
+    const { currentPassword, newPassword } = req.body || {};
 
     if (
       typeof currentPassword !== "string" ||
@@ -282,15 +241,13 @@ app.post(
       newPassword.length < 8
     ) {
       return res.status(400).json({
-        error:
-          "Enter your current password and a new password of at least 8 characters."
+        error: "Enter your current password and a new password of at least 8 characters."
       });
     }
 
     if (currentPassword === newPassword) {
       return res.status(400).json({
-        error:
-          "New password must be different from the current password."
+        error: "New password must be different from the current password."
       });
     }
 
@@ -306,24 +263,18 @@ app.post(
 
       if (stored.rows.length) {
         const row = stored.rows[0];
-
         const calculated = await scryptAsync(
           currentPassword,
           row.password_salt,
           64
         );
-
-        const expected = Buffer.from(
-          row.password_hash,
-          "hex"
-        );
+        const expected = Buffer.from(row.password_hash, "hex");
 
         currentValid =
           expected.length === calculated.length &&
           crypto.timingSafeEqual(expected, calculated);
       } else {
-        currentValid =
-          currentPassword === USERS.mainadmin.password;
+        currentValid = currentPassword === USERS.mainadmin.password;
       }
 
       if (!currentValid) {
@@ -333,7 +284,6 @@ app.post(
       }
 
       const salt = crypto.randomBytes(16).toString("hex");
-
       const hash = (
         await scryptAsync(newPassword, salt, 64)
       ).toString("hex");
@@ -348,23 +298,20 @@ app.post(
           updated_at = NOW()
       `, ["mainadmin", hash, salt]);
 
-      return res.json({
+      res.json({
         success: true,
         message: "Password changed successfully."
       });
     } catch (error) {
       console.error("Password change error:", error);
-
-      return res.status(500).json({
+      res.status(500).json({
         error: "Unable to change password right now."
       });
     }
   }
 );
 
-/* =========================
-   GET ALL STOCK DATA
-========================= */
+/* GET ALL STOCK DATA */
 
 app.get("/api/data", auth, async (req, res) => {
   try {
@@ -374,8 +321,7 @@ app.get("/api/data", auth, async (req, res) => {
         i.item_name AS "itemName",
         COALESCE(s.quantity, 0) AS quantity
       FROM items i
-      LEFT JOIN stock s
-        ON s.item_code = i.item_code
+      LEFT JOIN stock s ON s.item_code = i.item_code
       ORDER BY i.item_code
     `);
 
@@ -401,6 +347,7 @@ app.get("/api/data", auth, async (req, res) => {
         quantity,
         booth_no AS "boothNo",
         colour,
+        operator_name AS "operatorName",
         remarks,
         created_at AS "createdAt"
       FROM completed_stock
@@ -414,23 +361,16 @@ app.get("/api/data", auth, async (req, res) => {
     });
   } catch (error) {
     console.error("Get data error:", error);
-
     res.status(500).json({
       error: "Unable to load stock data."
     });
   }
 });
 
-/* =========================
-   NOTIFICATIONS
-========================= */
+/* NOTIFICATIONS */
 
 app.get("/api/notifications", auth, async (req, res) => {
-  if (
-    !["powdercoating", "mainadmin"].includes(
-      req.user.username
-    )
-  ) {
+  if (!["powdercoating", "mainadmin"].includes(req.user.username)) {
     return res.json({ notifications: [] });
   }
 
@@ -459,90 +399,64 @@ app.get("/api/notifications", auth, async (req, res) => {
       LIMIT 100
     `, [since.toISOString()]);
 
-    res.json({
-      notifications: result.rows
-    });
+    res.json({ notifications: result.rows });
   } catch (error) {
     console.error(error);
-
     res.status(500).json({
       error: "Unable to load notifications."
     });
   }
 });
 
-/* =========================
-   ADD ITEM CODE
-========================= */
+/* ADD ITEM CODE */
 
-app.post(
-  "/api/items",
-  auth,
-  allowUsers("mainadmin"),
-  async (req, res) => {
-    const { itemCode, itemName } = req.body || {};
+app.post("/api/items", auth, allowUsers("mainadmin"), async (req, res) => {
+  const { itemCode, itemName } = req.body || {};
 
-    if (!validateItem(itemCode, itemName)) {
-      return res.status(400).json({
-        error: "Item code and item name are required."
-      });
-    }
-
-    const code = itemCode.trim();
-    const name = itemName.trim();
-
-    try {
-      const result = await pool.query(`
-        INSERT INTO items (item_code, item_name)
-        VALUES ($1, $2)
-        ON CONFLICT (item_code) DO NOTHING
-        RETURNING
-          item_code AS "itemCode",
-          item_name AS "itemName"
-      `, [code, name]);
-
-      if (result.rowCount === 0) {
-        return res.status(409).json({
-          error: "Item code already exists."
-        });
-      }
-
-      await pool.query(`
-        INSERT INTO stock (item_code, quantity)
-        VALUES ($1, 0)
-        ON CONFLICT (item_code) DO NOTHING
-      `, [code]);
-
-      res.json({
-        success: true,
-        ...result.rows[0]
-      });
-    } catch (error) {
-      console.error(error);
-
-      res.status(500).json({
-        error: "Unable to add item."
-      });
-    }
+  if (!validateItem(itemCode, itemName)) {
+    return res.status(400).json({
+      error: "Item code and item name are required."
+    });
   }
-);
 
-/* =========================
-   ADD PRE TREATMENT STOCK
-========================= */
+  const code = itemCode.trim();
+  const name = itemName.trim();
+
+  try {
+    const result = await pool.query(`
+      INSERT INTO items (item_code, item_name)
+      VALUES ($1, $2)
+      ON CONFLICT (item_code) DO NOTHING
+      RETURNING item_code AS "itemCode", item_name AS "itemName"
+    `, [code, name]);
+
+    if (!result.rowCount) {
+      return res.status(409).json({
+        error: "Item code already exists."
+      });
+    }
+
+    await pool.query(`
+      INSERT INTO stock (item_code, quantity)
+      VALUES ($1, 0)
+      ON CONFLICT (item_code) DO NOTHING
+    `, [code]);
+
+    res.json({ success: true, ...result.rows[0] });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Unable to add item." });
+  }
+});
+
+/* ADD PRE TREATMENT STOCK */
 
 app.post(
   "/api/stock/add",
   auth,
   allowUsers("pretreatment", "mainadmin"),
   async (req, res) => {
-    const {
-      itemCode,
-      itemName,
-      quantity,
-      remarks
-    } = req.body || {};
-
+    const { itemCode, itemName, quantity, remarks } = req.body || {};
     const qty = Number(quantity);
 
     if (
@@ -551,8 +465,7 @@ app.post(
       qty <= 0
     ) {
       return res.status(400).json({
-        error:
-          "Enter a valid item code, item name and quantity."
+        error: "Enter a valid item code, item name and quantity."
       });
     }
 
@@ -574,8 +487,7 @@ app.post(
         INSERT INTO stock (item_code, quantity)
         VALUES ($1, $2)
         ON CONFLICT (item_code)
-        DO UPDATE SET
-          quantity = stock.quantity + EXCLUDED.quantity
+        DO UPDATE SET quantity = stock.quantity + EXCLUDED.quantity
       `, [code, qty]);
 
       await client.query(`
@@ -585,43 +497,28 @@ app.post(
       `, [code, name, qty, remarks || ""]);
 
       await client.query("COMMIT");
-
       res.json({ success: true });
     } catch (error) {
       await client.query("ROLLBACK");
       console.error(error);
-
-      res.status(500).json({
-        error: "Unable to add stock."
-      });
+      res.status(500).json({ error: "Unable to add stock." });
     } finally {
       client.release();
     }
   }
 );
 
-/* =========================
-   SEND STOCK TO POWDER COATING
-   DAY SHIFT / NIGHT SHIFT
-========================= */
+/* SEND STOCK TO POWDER COATING */
 
 app.post(
   "/api/stock/send",
   auth,
   allowUsers("pretreatment", "mainadmin"),
   async (req, res) => {
-    const {
-      itemCode,
-      itemName,
-      quantity,
-      remarks,
-      shift
-    } = req.body || {};
-
+    const { itemCode, itemName, quantity, remarks, shift } = req.body || {};
     const qty = Number(quantity);
-    const validShifts = ["Day Shift", "Night Shift"];
 
-    if (!validShifts.includes(shift)) {
+    if (!["Day Shift", "Night Shift"].includes(shift)) {
       return res.status(400).json({
         error: "Please select Day Shift or Night Shift."
       });
@@ -645,15 +542,12 @@ app.post(
       await client.query("BEGIN");
 
       const result = await client.query(`
-        SELECT quantity
-        FROM stock
-        WHERE item_code = $1
-        FOR UPDATE
+        SELECT quantity FROM stock
+        WHERE item_code = $1 FOR UPDATE
       `, [code]);
 
-      if (result.rowCount === 0) {
+      if (!result.rowCount) {
         await client.query("ROLLBACK");
-
         return res.status(404).json({
           error: "Item stock not found."
         });
@@ -663,17 +557,13 @@ app.post(
 
       if (qty > available) {
         await client.query("ROLLBACK");
-
         return res.status(400).json({
-          error:
-            "Insufficient stock. Available quantity: " +
-            available
+          error: "Insufficient stock. Available quantity: " + available
         });
       }
 
       await client.query(`
-        UPDATE stock
-        SET quantity = quantity - $1
+        UPDATE stock SET quantity = quantity - $1
         WHERE item_code = $2
       `, [qty, code]);
 
@@ -694,33 +584,23 @@ app.post(
     } catch (error) {
       await client.query("ROLLBACK");
       console.error(error);
-
-      res.status(500).json({
-        error: "Unable to send stock."
-      });
+      res.status(500).json({ error: "Unable to send stock." });
     } finally {
       client.release();
     }
   }
 );
 
-/* =========================
-   ACCEPT PENDING RECEIPT
-========================= */
+/* ACCEPT RECEIVED STOCK */
 
 app.post(
   "/api/stock/accept-receipt",
   auth,
   allowUsers("powdercoating", "mainadmin"),
   async (req, res) => {
-    const transactionId = Number(
-      req.body?.transactionId
-    );
+    const transactionId = Number(req.body?.transactionId);
 
-    if (
-      !Number.isInteger(transactionId) ||
-      transactionId <= 0
-    ) {
+    if (!Number.isInteger(transactionId) || transactionId <= 0) {
       return res.status(400).json({
         error: "Valid pending receipt is required."
       });
@@ -732,25 +612,16 @@ app.post(
       await client.query("BEGIN");
 
       const result = await client.query(`
-        SELECT
-          id,
-          item_code,
-          item_name,
-          quantity,
-          remarks,
-          shift
+        SELECT id, item_code, item_name, quantity, remarks, shift
         FROM transactions
-        WHERE id = $1
-          AND type = 'PENDING_RECEIPT'
+        WHERE id = $1 AND type = 'PENDING_RECEIPT'
         FOR UPDATE
       `, [transactionId]);
 
-      if (result.rowCount === 0) {
+      if (!result.rowCount) {
         await client.query("ROLLBACK");
-
         return res.status(404).json({
-          error:
-            "Pending receipt not found or already accepted."
+          error: "Pending receipt not found or already accepted."
         });
       }
 
@@ -774,7 +645,6 @@ app.post(
     } catch (error) {
       await client.query("ROLLBACK");
       console.error(error);
-
       res.status(500).json({
         error: "Unable to accept receipt."
       });
@@ -784,22 +654,14 @@ app.post(
   }
 );
 
-/* =========================
-   EDIT POWDER COATING BALANCE
-========================= */
+/* EDIT POWDER COATING BALANCE */
 
 app.post(
   "/api/stock/edit",
   auth,
   allowUsers("mainadmin"),
   async (req, res) => {
-    const {
-      itemCode,
-      itemName,
-      updatedQuantity,
-      remarks
-    } = req.body || {};
-
+    const { itemCode, itemName, updatedQuantity, remarks } = req.body || {};
     const updated = Number(updatedQuantity);
 
     if (
@@ -808,8 +670,7 @@ app.post(
       updated < 0
     ) {
       return res.status(400).json({
-        error:
-          "Enter a valid item and updated stock quantity."
+        error: "Enter a valid item and updated stock quantity."
       });
     }
 
@@ -823,48 +684,30 @@ app.post(
       const receivedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM transactions
-        WHERE item_code = $1
-          AND type = 'RECEIVE_POWDER'
+        WHERE item_code = $1 AND type = 'RECEIVE_POWDER'
       `, [code]);
 
       const completedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
-        FROM completed_stock
-        WHERE item_code = $1
+        FROM completed_stock WHERE item_code = $1
       `, [code]);
 
       const editedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM transactions
-        WHERE item_code = $1
-          AND type = 'EDIT_POWDER_STOCK'
+        WHERE item_code = $1 AND type = 'EDIT_POWDER_STOCK'
       `, [code]);
 
-      const received = Number(
-        receivedResult.rows[0].total
-      );
-
-      const completed = Number(
-        completedResult.rows[0].total
-      );
-
-      const edited = Number(
-        editedResult.rows[0].total
-      );
-
-      const current = Math.max(
-        0,
-        received - completed + edited
-      );
-
+      const received = Number(receivedResult.rows[0].total);
+      const completed = Number(completedResult.rows[0].total);
+      const edited = Number(editedResult.rows[0].total);
+      const current = Math.max(0, received - completed + edited);
       const delta = updated - current;
 
       if (delta === 0) {
         await client.query("ROLLBACK");
-
         return res.status(400).json({
-          error:
-            "Updated stock is the same as current stock."
+          error: "Updated stock is the same as current stock."
         });
       }
 
@@ -884,19 +727,14 @@ app.post(
     } catch (error) {
       await client.query("ROLLBACK");
       console.error(error);
-
-      res.status(500).json({
-        error: "Unable to edit stock."
-      });
+      res.status(500).json({ error: "Unable to edit stock." });
     } finally {
       client.release();
     }
   }
 );
 
-/* =========================
-   POWDER COATING COMPLETED STOCK
-========================= */
+/* POWDER COATING COMPLETED STOCK — OPERATOR NAME ADDED */
 
 app.post(
   "/api/stock/complete",
@@ -909,18 +747,17 @@ app.post(
       quantity,
       boothNo,
       colour,
+      operatorName,
       remarks
     } = req.body || {};
 
     const qty = Number(quantity);
     const booth = String(boothNo || "").trim();
     const selectedColour = String(colour || "").trim();
+    const operator = String(operatorName || "").trim();
     const note = String(remarks || "").trim();
 
-    const validBooths = [
-      "1", "2", "3", "4", "5", "6", "DL"
-    ];
-
+    const validBooths = ["1", "2", "3", "4", "5", "6", "DL"];
     const validColours = [
       "IGP Blue",
       "IGP Grey",
@@ -934,6 +771,17 @@ app.post(
       "Strom Grey",
       "Ral 7001",
       "Ral 7044"
+    ];
+    const validOperators = [
+      "Suresh",
+      "Anji",
+      "Rajiv",
+      "Sonu",
+      "Gobinda",
+      "Ranjan",
+      "Bikas",
+      "Noor Islam",
+      "Tiwari"
     ];
 
     if (
@@ -958,6 +806,12 @@ app.post(
       });
     }
 
+    if (!validOperators.includes(operator)) {
+      return res.status(400).json({
+        error: "Please select a valid operator name."
+      });
+    }
+
     const code = itemCode.trim();
     const name = itemName.trim();
     const client = await pool.connect();
@@ -970,40 +824,30 @@ app.post(
       const receivedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM transactions
-        WHERE item_code = $1
-          AND type = 'RECEIVE_POWDER'
+        WHERE item_code = $1 AND type = 'RECEIVE_POWDER'
       `, [code]);
 
       const completedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
-        FROM completed_stock
-        WHERE item_code = $1
+        FROM completed_stock WHERE item_code = $1
       `, [code]);
 
       const editedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM transactions
-        WHERE item_code = $1
-          AND type = 'EDIT_POWDER_STOCK'
+        WHERE item_code = $1 AND type = 'EDIT_POWDER_STOCK'
       `, [code]);
 
       const received = Number(receivedResult.rows[0].total);
       const completed = Number(completedResult.rows[0].total);
       const edited = Number(editedResult.rows[0].total);
-
-      const balance = Math.max(
-        0,
-        received - completed + edited
-      );
+      const balance = Math.max(0, received - completed + edited);
 
       if (qty > balance) {
         await client.query("ROLLBACK");
         transactionStarted = false;
-
         return res.status(400).json({
-          error:
-            "Insufficient balance. Available quantity: " +
-            balance
+          error: "Insufficient balance. Available quantity: " + balance
         });
       }
 
@@ -1015,10 +859,11 @@ app.post(
             quantity,
             booth_no,
             colour,
+            operator_name,
             remarks
           )
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `, [code, name, qty, booth, selectedColour, note]);
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [code, name, qty, booth, selectedColour, operator, note]);
 
       await client.query(`
         INSERT INTO transactions
@@ -1029,7 +874,7 @@ app.post(
       await client.query("COMMIT");
       transactionStarted = false;
 
-      return res.json({
+      res.json({
         success: true,
         balance: balance - qty
       });
@@ -1037,10 +882,8 @@ app.post(
       if (transactionStarted) {
         await client.query("ROLLBACK");
       }
-
       console.error("Complete stock error:", error);
-
-      return res.status(500).json({
+      res.status(500).json({
         error: "Unable to save completed stock."
       });
     } finally {
@@ -1049,9 +892,7 @@ app.post(
   }
 );
 
-/* =========================
-   SERVE WEBSITE
-========================= */
+/* SERVE WEBSITE */
 
 app.use(express.static(__dirname));
 
@@ -1059,56 +900,39 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-/* Express 5 fallback */
 app.get("/{*splat}", (req, res, next) => {
   const indexFile = path.join(__dirname, "index.html");
 
   if (!fs.existsSync(indexFile)) {
-    return res.status(404).send(
-      "index.html was not found."
-    );
+    return res.status(404).send("index.html was not found.");
   }
 
   res.sendFile(indexFile, error => {
-    if (error && !res.headersSent) {
-      next(error);
-    }
+    if (error && !res.headersSent) next(error);
   });
 });
 
-/* =========================
-   ERROR HANDLER
-========================= */
+/* ERROR HANDLER */
 
 app.use((error, req, res, next) => {
   console.error("Server error:", error);
 
-  if (res.headersSent) {
-    return next(error);
-  }
+  if (res.headersSent) return next(error);
 
   res.status(500).json({
     error: "Internal server error."
   });
 });
 
-/* =========================
-   START SERVER
-========================= */
+/* START SERVER */
 
 initDatabase()
   .then(() => {
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(
-        "Server running on port " + PORT
-      );
+      console.log("Server running on port " + PORT);
     });
   })
   .catch(error => {
-    console.error(
-      "Database initialization failed:",
-      error
-    );
-
+    console.error("Database initialization failed:", error);
     process.exit(1);
   });
