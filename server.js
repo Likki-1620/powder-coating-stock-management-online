@@ -424,7 +424,7 @@ app.get("/api/notifications", auth, async (req, res) => {
 app.post(
   "/api/items",
   auth,
-  allowUsers("mainadmin"),
+  allowUsers("pretreatment", "powdercoating", "mainadmin"),
   async (req, res) => {
     const { itemCode, itemName } = req.body || {};
 
@@ -438,13 +438,17 @@ app.post(
     const name = itemName.trim();
 
     try {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         INSERT INTO items (item_code, item_name)
         VALUES ($1, $2)
         ON CONFLICT (item_code) DO NOTHING
-        RETURNING item_code AS "itemCode",
-                  item_name AS "itemName"
-      `, [code, name]);
+        RETURNING
+          item_code AS "itemCode",
+          item_name AS "itemName"
+        `,
+        [code, name]
+      );
 
       if (!result.rowCount) {
         return res.status(409).json({
@@ -452,16 +456,25 @@ app.post(
         });
       }
 
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO stock (item_code, quantity)
         VALUES ($1, 0)
         ON CONFLICT (item_code) DO NOTHING
-      `, [code]);
+        `,
+        [code]
+      );
 
-      res.json({ success: true, ...result.rows[0] });
+      return res.json({
+        success: true,
+        ...result.rows[0]
+      });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Unable to add item." });
+      console.error("Add item error:", error);
+
+      return res.status(500).json({
+        error: "Unable to add item."
+      });
     }
   }
 );
