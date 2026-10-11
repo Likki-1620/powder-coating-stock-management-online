@@ -83,6 +83,8 @@ async function initDatabase() {
       item_code TEXT NOT NULL,
       item_name TEXT NOT NULL,
       quantity NUMERIC NOT NULL,
+      booth_no TEXT DEFAULT '',
+      colour TEXT DEFAULT '',
       remarks TEXT DEFAULT '',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -95,10 +97,15 @@ async function initDatabase() {
     );
   `);
 
-  // Add shift column to existing PostgreSQL databases.
   await pool.query(`
     ALTER TABLE transactions
     ADD COLUMN IF NOT EXISTS shift TEXT
+  `);
+
+  await pool.query(`
+    ALTER TABLE completed_stock
+    ADD COLUMN IF NOT EXISTS booth_no TEXT DEFAULT '',
+    ADD COLUMN IF NOT EXISTS colour TEXT DEFAULT ''
   `);
 
   console.log("Database tables ready.");
@@ -392,6 +399,8 @@ app.get("/api/data", auth, async (req, res) => {
         item_code AS "itemCode",
         item_name AS "itemName",
         quantity,
+        booth_no AS "boothNo",
+        colour,
         remarks,
         created_at AS "createdAt"
       FROM completed_stock
@@ -668,7 +677,6 @@ app.post(
         WHERE item_code = $2
       `, [qty, code]);
 
-      // Save the selected shift with the pending receipt.
       await client.query(`
         INSERT INTO transactions
           (item_code, item_name, quantity, type, remarks, shift)
@@ -909,7 +917,10 @@ app.post(
     const selectedColour = String(colour || "").trim();
     const note = String(remarks || "").trim();
 
-    const validBooths = ["1", "2", "3", "4", "5", "6", "DL"];
+    const validBooths = [
+      "1", "2", "3", "4", "5", "6", "DL"
+    ];
+
     const validColours = [
       "IGP Blue",
       "IGP Grey",
@@ -925,8 +936,11 @@ app.post(
       "Ral 7044"
     ];
 
-    if (!validateItem(itemCode, itemName) ||
-        !Number.isFinite(qty) || qty <= 0) {
+    if (
+      !validateItem(itemCode, itemName) ||
+      !Number.isFinite(qty) ||
+      qty <= 0
+    ) {
       return res.status(400).json({
         error: "Enter a valid item and quantity."
       });
@@ -987,13 +1001,22 @@ app.post(
         transactionStarted = false;
 
         return res.status(400).json({
-          error: "Insufficient balance. Available quantity: " + balance
+          error:
+            "Insufficient balance. Available quantity: " +
+            balance
         });
       }
 
       await client.query(`
         INSERT INTO completed_stock
-          (item_code, item_name, quantity, booth_no, colour, remarks)
+          (
+            item_code,
+            item_name,
+            quantity,
+            booth_no,
+            colour,
+            remarks
+          )
         VALUES ($1, $2, $3, $4, $5, $6)
       `, [code, name, qty, booth, selectedColour, note]);
 
@@ -1010,7 +1033,6 @@ app.post(
         success: true,
         balance: balance - qty
       });
-
     } catch (error) {
       if (transactionStarted) {
         await client.query("ROLLBACK");
