@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -90,15 +91,32 @@ async function initDatabase() {
 
   await pool.query(`
     ALTER TABLE transactions
-    ADD COLUMN IF NOT EXISTS shift TEXT,
-    ADD COLUMN IF NOT EXISTS send_date DATE
+      ADD COLUMN IF NOT EXISTS shift TEXT,
+      ADD COLUMN IF NOT EXISTS send_date DATE,
+      ADD COLUMN IF NOT EXISTS department TEXT
   `);
 
   await pool.query(`
     ALTER TABLE completed_stock
-    ADD COLUMN IF NOT EXISTS booth_no TEXT DEFAULT '',
-    ADD COLUMN IF NOT EXISTS colour TEXT DEFAULT '',
-    ADD COLUMN IF NOT EXISTS operator_name TEXT DEFAULT ''
+      ADD COLUMN IF NOT EXISTS booth_no TEXT DEFAULT '',
+      ADD COLUMN IF NOT EXISTS colour TEXT DEFAULT '',
+      ADD COLUMN IF NOT EXISTS operator_name TEXT DEFAULT ''
+  `);
+
+  // Preserve older stock records and identify the original department
+  // from their transaction type.
+  await pool.query(`
+    UPDATE transactions
+    SET department = CASE
+      WHEN type = 'ADD_POWDER_STOCK' THEN 'powdercoating'
+      WHEN type = 'ADD_STOCK' THEN 'pretreatment'
+      WHEN type IN ('PENDING_RECEIPT', 'RECEIVE_POWDER')
+        THEN 'pretreatment'
+      WHEN type IN ('EDIT_POWDER_STOCK', 'POWDER_COMPLETED')
+        THEN 'powdercoating'
+      ELSE COALESCE(department, 'pretreatment')
+    END
+    WHERE department IS NULL OR department = ''
   `);
 
   console.log("Database tables ready.");
@@ -309,7 +327,7 @@ app.post(
   }
 );
 
-/* LOAD SHARED STOCK DATA */
+/* LOAD STOCK DATA */
 
 app.get("/api/data", auth, async (req, res) => {
   try {
@@ -330,6 +348,7 @@ app.get("/api/data", auth, async (req, res) => {
         item_name AS "itemName",
         quantity,
         type,
+        department,
         remarks,
         shift,
         TO_CHAR(send_date, 'DD/MM/YYYY') AS date,
@@ -390,6 +409,7 @@ app.get("/api/notifications", auth, async (req, res) => {
         item_name AS "itemName",
         quantity,
         shift,
+        TO_CHAR(send_date, 'DD/MM/YYYY') AS date,
         created_at AS "createdAt"
       FROM transactions
       WHERE type = 'PENDING_RECEIPT'
@@ -463,7 +483,7 @@ app.post(
   }
 );
 
-/* ADD STOCK */
+/* ADD STOCK — DEPARTMENTS SEPARATED */
 
 app.post(
   "/api/stock/add",
@@ -472,6 +492,7 @@ app.post(
   async (req, res) => {
     const { itemCode, itemName, quantity, remarks } = req.body || {};
     const qty = Number(quantity);
+    const username = req.user.username;
 
     if (
       !validateItem(itemCode, itemName) ||
@@ -483,8 +504,37 @@ app.post(
       });
     }
 
+    /*
+      Normal department logins always save to their own department.
+      Main Admin may optionally specify department in the request body.
+      If omitted, Main Admin additions are classified as Pre Treatment.
+    */
+    let department;
+
+    if (username === "powdercoating") {
+      department = "powdercoating";
+    } else if (username === "pretreatment") {
+      department = "pretreatment";
+    } else {
+      department = String(req.body?.department || "pretreatment")
+        .trim()
+        .toLowerCase();
+    }
+
+    if (!["pretreatment", "powdercoating"].includes(department)) {
+      return res.status(400).json({
+        error: "Department must be pretreatment or powdercoating."
+      });
+    }
+
+    const transactionType =
+      department === "powdercoating"
+        ? "ADD_POWDER_STOCK"
+        : "ADD_STOCK";
+
     const code = itemCode.trim();
     const name = itemName.trim();
+    const note = String(remarks || "").trim();
     const client = await pool.connect();
 
     try {
@@ -497,6 +547,11 @@ app.post(
         DO UPDATE SET item_name = EXCLUDED.item_name
       `, [code, name]);
 
+      /*
+        Keep the existing shared stock table behavior for compatibility
+        with the current application. Department history is separated
+        by transaction type and department.
+      */
       await client.query(`
         INSERT INTO stock (item_code, quantity)
         VALUES ($1, $2)
@@ -504,23 +559,29 @@ app.post(
         DO UPDATE SET quantity = stock.quantity + EXCLUDED.quantity
       `, [code, qty]);
 
-      const transactionType =
-        req.user.username === "powdercoating"
-          ? "ADD_POWDER_STOCK"
-          : "ADD_STOCK";
-
       await client.query(`
         INSERT INTO transactions
-          (item_code, item_name, quantity, type, remarks)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [code, name, qty, transactionType, remarks || ""]);
+          (item_code, item_name, quantity, type, department, remarks)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [code, name, qty, transactionType, department, note]);
 
       await client.query("COMMIT");
-      res.json({ success: true });
+
+      res.json({
+        success: true,
+        department,
+        type: transactionType,
+        message:
+          department === "powdercoating"
+            ? "Powder Coating stock added successfully."
+            : "Pre Treatment stock added successfully."
+      });
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Add stock error:", error);
-      res.status(500).json({ error: "Unable to add stock." });
+      res.status(500).json({
+        error: "Unable to add stock."
+      });
     } finally {
       client.release();
     }
@@ -534,7 +595,15 @@ app.post(
   auth,
   allowUsers("pretreatment", "mainadmin"),
   async (req, res) => {
-    const { itemCode, itemName, quantity, remarks, shift, date } = req.body || {};
+    const {
+      itemCode,
+      itemName,
+      quantity,
+      remarks,
+      shift,
+      date
+    } = req.body || {};
+
     const qty = Number(quantity);
     const dateText = String(date || "").trim();
     const dateMatch = dateText.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -551,7 +620,8 @@ app.post(
         parsed.getUTCMonth() === month - 1 &&
         parsed.getUTCDate() === day
       ) {
-        sendDateISO = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+        sendDateISO =
+          `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
       }
     }
 
@@ -614,8 +684,11 @@ app.post(
 
       await client.query(`
         INSERT INTO transactions
-          (item_code, item_name, quantity, type, remarks, shift, send_date)
-        VALUES ($1, $2, $3, 'PENDING_RECEIPT', $4, $5, $6)
+          (item_code, item_name, quantity, type, department,
+           remarks, shift, send_date)
+        VALUES
+          ($1, $2, $3, 'PENDING_RECEIPT', 'pretreatment',
+           $4, $5, $6)
       `, [code, name, qty, remarks || "", shift, sendDateISO]);
 
       await client.query("COMMIT");
@@ -624,12 +697,15 @@ app.post(
         success: true,
         pending: true,
         shift,
+        date,
         balance: available - qty
       });
     } catch (error) {
       await client.query("ROLLBACK");
-      console.error(error);
-      res.status(500).json({ error: "Unable to send stock." });
+      console.error("Send stock error:", error);
+      res.status(500).json({
+        error: "Unable to send stock."
+      });
     } finally {
       client.release();
     }
@@ -676,7 +752,8 @@ app.post(
 
       await client.query(`
         UPDATE transactions
-        SET type = 'RECEIVE_POWDER'
+        SET type = 'RECEIVE_POWDER',
+            department = 'powdercoating'
         WHERE id = $1
       `, [transactionId]);
 
@@ -709,7 +786,13 @@ app.post(
   auth,
   allowUsers("mainadmin"),
   async (req, res) => {
-    const { itemCode, itemName, updatedQuantity, remarks } = req.body || {};
+    const {
+      itemCode,
+      itemName,
+      updatedQuantity,
+      remarks
+    } = req.body || {};
+
     const updated = Number(updatedQuantity);
 
     if (
@@ -755,9 +838,12 @@ app.post(
 
       const received = Number(receivedResult.rows[0].total);
       const directAdd = Number(directAddResult.rows[0].total);
-      const completed = Number(completedResult.rows[0].total);
+      const completedQty = Number(completedResult.rows[0].total);
       const edited = Number(editedResult.rows[0].total);
-      const current = Math.max(0, received + directAdd - completed + edited);
+      const current = Math.max(
+        0,
+        received + directAdd - completedQty + edited
+      );
       const delta = updated - current;
 
       if (delta === 0) {
@@ -769,8 +855,8 @@ app.post(
 
       await client.query(`
         INSERT INTO transactions
-          (item_code, item_name, quantity, type, remarks)
-        VALUES ($1, $2, $3, 'EDIT_POWDER_STOCK', $4)
+          (item_code, item_name, quantity, type, department, remarks)
+        VALUES ($1, $2, $3, 'EDIT_POWDER_STOCK', 'powdercoating', $4)
       `, [code, name, delta, remarks || ""]);
 
       await client.query("COMMIT");
@@ -782,8 +868,10 @@ app.post(
       });
     } catch (error) {
       await client.query("ROLLBACK");
-      console.error(error);
-      res.status(500).json({ error: "Unable to edit stock." });
+      console.error("Edit powder stock error:", error);
+      res.status(500).json({
+        error: "Unable to edit stock."
+      });
     } finally {
       client.release();
     }
@@ -871,11 +959,9 @@ app.post(
     const code = itemCode.trim();
     const name = itemName.trim();
     const client = await pool.connect();
-    let transactionStarted = false;
 
     try {
       await client.query("BEGIN");
-      transactionStarted = true;
 
       const receivedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
@@ -905,6 +991,7 @@ app.post(
       const directAdd = Number(directAddResult.rows[0].total);
       const completedQty = Number(completedResult.rows[0].total);
       const edited = Number(editedResult.rows[0].total);
+
       const balance = Math.max(
         0,
         received + directAdd - completedQty + edited
@@ -912,7 +999,6 @@ app.post(
 
       if (qty > balance) {
         await client.query("ROLLBACK");
-        transactionStarted = false;
         return res.status(400).json({
           error: "Insufficient balance. Available quantity: " + balance
         });
@@ -920,35 +1006,25 @@ app.post(
 
       await client.query(`
         INSERT INTO completed_stock
-          (
-            item_code,
-            item_name,
-            quantity,
-            booth_no,
-            colour,
-            operator_name,
-            remarks
-          )
+          (item_code, item_name, quantity, booth_no,
+           colour, operator_name, remarks)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
       `, [code, name, qty, booth, selectedColour, operator, note]);
 
       await client.query(`
         INSERT INTO transactions
-          (item_code, item_name, quantity, type, remarks)
-        VALUES ($1, $2, $3, 'POWDER_COMPLETED', $4)
+          (item_code, item_name, quantity, type, department, remarks)
+        VALUES ($1, $2, $3, 'POWDER_COMPLETED', 'powdercoating', $4)
       `, [code, name, qty, note]);
 
       await client.query("COMMIT");
-      transactionStarted = false;
 
       res.json({
         success: true,
         balance: balance - qty
       });
     } catch (error) {
-      if (transactionStarted) {
-        await client.query("ROLLBACK");
-      }
+      await client.query("ROLLBACK");
       console.error("Complete stock error:", error);
       res.status(500).json({
         error: "Unable to save completed stock."
@@ -982,8 +1058,7 @@ app.post(
 
       await client.query(`
         INSERT INTO stock (item_code, quantity)
-        SELECT item_code, 0
-        FROM items
+        SELECT item_code, 0 FROM items
         ON CONFLICT (item_code)
         DO UPDATE SET quantity = 0
       `);
