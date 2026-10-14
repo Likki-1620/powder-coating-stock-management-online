@@ -90,7 +90,8 @@ async function initDatabase() {
 
   await pool.query(`
     ALTER TABLE transactions
-    ADD COLUMN IF NOT EXISTS shift TEXT
+    ADD COLUMN IF NOT EXISTS shift TEXT,
+    ADD COLUMN IF NOT EXISTS send_date DATE
   `);
 
   await pool.query(`
@@ -331,6 +332,7 @@ app.get("/api/data", auth, async (req, res) => {
         type,
         remarks,
         shift,
+        TO_CHAR(send_date, 'DD/MM/YYYY') AS date,
         created_at AS "createdAt"
       FROM transactions
       ORDER BY created_at DESC, id DESC
@@ -405,9 +407,7 @@ app.get("/api/notifications", auth, async (req, res) => {
   }
 });
 
-/* ADD NEW ITEM CODE
-   All three login accounts can add item codes.
-*/
+/* ADD NEW ITEM CODE */
 
 app.post(
   "/api/items",
@@ -463,10 +463,7 @@ app.post(
   }
 );
 
-/* ADD STOCK
-   Pre Treatment records ADD_STOCK.
-   Powder Coating records ADD_POWDER_STOCK.
-*/
+/* ADD STOCK */
 
 app.post(
   "/api/stock/add",
@@ -537,8 +534,32 @@ app.post(
   auth,
   allowUsers("pretreatment", "mainadmin"),
   async (req, res) => {
-    const { itemCode, itemName, quantity, remarks, shift } = req.body || {};
+    const { itemCode, itemName, quantity, remarks, shift, date } = req.body || {};
     const qty = Number(quantity);
+    const dateText = String(date || "").trim();
+    const dateMatch = dateText.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    let sendDateISO = null;
+
+    if (dateMatch) {
+      const day = Number(dateMatch[1]);
+      const month = Number(dateMatch[2]);
+      const year = Number(dateMatch[3]);
+      const parsed = new Date(Date.UTC(year, month - 1, day));
+
+      if (
+        parsed.getUTCFullYear() === year &&
+        parsed.getUTCMonth() === month - 1 &&
+        parsed.getUTCDate() === day
+      ) {
+        sendDateISO = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+      }
+    }
+
+    if (!sendDateISO) {
+      return res.status(400).json({
+        error: "Select a valid Send Date in DD/MM/YYYY format."
+      });
+    }
 
     if (!["Day Shift", "Night Shift"].includes(shift)) {
       return res.status(400).json({
@@ -593,9 +614,9 @@ app.post(
 
       await client.query(`
         INSERT INTO transactions
-          (item_code, item_name, quantity, type, remarks, shift)
-        VALUES ($1, $2, $3, 'PENDING_RECEIPT', $4, $5)
-      `, [code, name, qty, remarks || "", shift]);
+          (item_code, item_name, quantity, type, remarks, shift, send_date)
+        VALUES ($1, $2, $3, 'PENDING_RECEIPT', $4, $5, $6)
+      `, [code, name, qty, remarks || "", shift, sendDateISO]);
 
       await client.query("COMMIT");
 
@@ -636,7 +657,9 @@ app.post(
       await client.query("BEGIN");
 
       const result = await client.query(`
-        SELECT id, item_code, item_name, quantity, remarks, shift
+        SELECT
+          id, item_code, item_name, quantity, remarks, shift,
+          TO_CHAR(send_date, 'DD/MM/YYYY') AS date
         FROM transactions
         WHERE id = $1 AND type = 'PENDING_RECEIPT'
         FOR UPDATE
@@ -664,7 +687,8 @@ app.post(
         itemCode: receipt.item_code,
         itemName: receipt.item_name,
         quantity: receipt.quantity,
-        shift: receipt.shift
+        shift: receipt.shift,
+        date: receipt.date
       });
     } catch (error) {
       await client.query("ROLLBACK");
