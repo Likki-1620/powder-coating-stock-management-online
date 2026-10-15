@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -115,6 +116,11 @@ function auth(req, res, next) {
 
   try {
     req.user = jwt.verify(header.substring(7), JWT_SECRET);
+
+    if (!USERS[req.user.username]) {
+      return res.status(401).json({ error: "Invalid user." });
+    }
+
     next();
   } catch {
     return res.status(401).json({
@@ -144,14 +150,18 @@ function validateItem(itemCode, itemName) {
 }
 
 /*
- * Powder Coating balance:
- * accepted receipts
+ * PRE TREATMENT:
+ * The stock table stores Pre Treatment balance only.
+ *
+ * POWDER COATING:
+ * Accepted receipts
  * + direct additions
  * + stock adjustments
  * - completed stock
  * - dispatched stock
  *
- * Daily dashboard totals must not be used to calculate actual stock.
+ * Never add ADD_POWDER_STOCK quantities to the shared
+ * Pre Treatment stock table.
  */
 
 async function getPowderBalance(client, code) {
@@ -213,7 +223,7 @@ app.get("/api/health", async (req, res) => {
     await pool.query("SELECT 1");
     res.json({ ok: true, database: true });
   } catch (error) {
-    console.error(error);
+    console.error("Health check error:", error);
     res.status(500).json({
       ok: false,
       database: false,
@@ -516,6 +526,7 @@ app.post(
         });
       }
 
+      // New item starts with zero Pre Treatment stock.
       await client.query(
         `INSERT INTO stock (item_code, quantity)
          VALUES ($1, 0)
@@ -538,15 +549,28 @@ app.post(
   }
 );
 
-/* ADD STOCK */
+/*
+ * ADD STOCK — DEPARTMENT SEPARATION FIX
+ *
+ * Pre Treatment:
+ *   Increases stock.quantity and records ADD_STOCK.
+ *
+ * Powder Coating:
+ *   Does NOT increase stock.quantity.
+ *   Records ADD_POWDER_STOCK only.
+ *
+ * The department comes from the authenticated login, not
+ * from a client-supplied department field.
+ */
 
 app.post(
   "/api/stock/add",
   auth,
-  allowUsers("pretreatment", "powdercoating", "mainadmin"),
+  allowUsers("pretreatment", "powdercoating"),
   async (req, res) => {
     const { itemCode, itemName, quantity, remarks } = req.body || {};
     const qty = Number(quantity);
+    const department = req.user.username;
 
     if (
       !validateItem(itemCode, itemName) ||
@@ -560,6 +584,7 @@ app.post(
 
     const code = itemCode.trim();
     const name = itemName.trim();
+    const note = String(remarks || "");
     const client = await pool.connect();
 
     try {
@@ -573,16 +598,28 @@ app.post(
         [code, name]
       );
 
-      await client.query(
-        `INSERT INTO stock (item_code, quantity)
-         VALUES ($1, $2)
-         ON CONFLICT (item_code)
-         DO UPDATE SET quantity = stock.quantity + EXCLUDED.quantity`,
-        [code, qty]
-      );
+      // This table is reserved for Pre Treatment balance.
+      if (department === "pretreatment") {
+        await client.query(
+          `INSERT INTO stock (item_code, quantity)
+           VALUES ($1, $2)
+           ON CONFLICT (item_code)
+           DO UPDATE SET
+             quantity = stock.quantity + EXCLUDED.quantity`,
+          [code, qty]
+        );
+      } else {
+        // Ensure the stock row exists but leave its quantity unchanged.
+        await client.query(
+          `INSERT INTO stock (item_code, quantity)
+           VALUES ($1, 0)
+           ON CONFLICT (item_code) DO NOTHING`,
+          [code]
+        );
+      }
 
       const transactionType =
-        req.user.username === "powdercoating"
+        department === "powdercoating"
           ? "ADD_POWDER_STOCK"
           : "ADD_STOCK";
 
@@ -590,14 +627,26 @@ app.post(
         `INSERT INTO transactions
            (item_code, item_name, quantity, type, remarks)
          VALUES ($1, $2, $3, $4, $5)`,
-        [code, name, qty, transactionType, remarks || ""]
+        [code, name, qty, transactionType, note]
       );
 
       await client.query("COMMIT");
-      res.json({ success: true });
+
+      res.json({
+        success: true,
+        department,
+        itemCode: code,
+        itemName: name,
+        quantity: qty,
+        message:
+          department === "powdercoating"
+            ? "Stock added to Powder Coating only."
+            : "Stock added to Pre Treatment only."
+      });
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Add stock error:", error);
+
       res.status(500).json({
         error: "Unable to add stock."
       });
@@ -684,7 +733,7 @@ app.post(
       if (!result.rowCount) {
         await client.query("ROLLBACK");
         return res.status(404).json({
-          error: "Item stock not found."
+          error: "Pre Treatment stock not found."
         });
       }
 
@@ -693,7 +742,7 @@ app.post(
       if (qty > available) {
         await client.query("ROLLBACK");
         return res.status(400).json({
-          error: "Insufficient stock. Available quantity: " + available
+          error: "Insufficient Pre Treatment stock. Available quantity: " + available
         });
       }
 
@@ -708,7 +757,7 @@ app.post(
         `INSERT INTO transactions
            (item_code, item_name, quantity, type, remarks, shift, send_date)
          VALUES ($1, $2, $3, 'PENDING_RECEIPT', $4, $5, $6)`,
-        [code, name, qty, remarks || "", shift, sendDateISO]
+        [code, name, qty, String(remarks || ""), shift, sendDateISO]
       );
 
       await client.query("COMMIT");
@@ -819,17 +868,16 @@ app.post(
   }
 );
 
-/* ACCEPT PENDING RECEIPT
-   received_at records the actual acceptance time.
-   send_date continues to record the original sending date.
-*/
+/* ACCEPT PENDING RECEIPT */
 
 app.post(
   "/api/stock/accept-receipt",
   auth,
   allowUsers("powdercoating", "mainadmin"),
   async (req, res) => {
-    const transactionId = Number(req.body?.transactionId);
+    const transactionId = Number(
+      req.body?.transactionId ?? req.body?.id
+    );
 
     if (!Number.isInteger(transactionId) || transactionId <= 0) {
       return res.status(400).json({
@@ -1135,9 +1183,9 @@ app.post(
 );
 
 /* CLEAR ALL STOCK
-   Destructive endpoint retained from your original code.
-   Do not call it for the daily 8 AM dashboard reset.
-*/
+ * Destructive endpoint. Use only after a deliberate backup
+ * and explicit confirmation from the website.
+ */
 
 app.post(
   "/api/admin/reset-stock",
