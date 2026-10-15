@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -93,7 +92,8 @@ async function initDatabase() {
     ALTER TABLE transactions
       ADD COLUMN IF NOT EXISTS shift TEXT,
       ADD COLUMN IF NOT EXISTS send_date DATE,
-      ADD COLUMN IF NOT EXISTS send_to TEXT;
+      ADD COLUMN IF NOT EXISTS send_to TEXT,
+      ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ;
 
     ALTER TABLE completed_stock
       ADD COLUMN IF NOT EXISTS booth_no TEXT DEFAULT '',
@@ -110,9 +110,7 @@ function auth(req, res, next) {
   const header = req.headers.authorization || "";
 
   if (!header.startsWith("Bearer ")) {
-    return res.status(401).json({
-      error: "Login required."
-    });
+    return res.status(401).json({ error: "Login required." });
   }
 
   try {
@@ -147,13 +145,13 @@ function validateItem(itemCode, itemName) {
 
 /*
  * Powder Coating balance:
- * accepted Pre Treatment receipts
- * + direct Powder Coating additions
+ * accepted receipts
+ * + direct additions
  * + stock adjustments
  * - completed stock
  * - dispatched stock
  *
- * Pre Treatment stock is maintained separately in the stock table.
+ * Daily dashboard totals must not be used to calculate actual stock.
  */
 
 async function getPowderBalance(client, code) {
@@ -188,7 +186,6 @@ async function getPowderBalance(client, code) {
   );
 
   const row = result.rows[0];
-
   const received = Number(row.received) || 0;
   const directAdd = Number(row.direct_add) || 0;
   const edited = Number(row.edited) || 0;
@@ -254,13 +251,11 @@ app.post(["/api/login", "/api/login/"], async (req, res) => {
 
       if (stored.rows.length) {
         const row = stored.rows[0];
-
         const calculated = await scryptAsync(
           password,
           row.password_salt,
           64
         );
-
         const expected = Buffer.from(row.password_hash, "hex");
 
         valid =
@@ -331,13 +326,11 @@ app.post(
 
       if (stored.rows.length) {
         const row = stored.rows[0];
-
         const calculated = await scryptAsync(
           currentPassword,
           row.password_salt,
           64
         );
-
         const expected = Buffer.from(row.password_hash, "hex");
 
         currentValid =
@@ -355,7 +348,6 @@ app.post(
       }
 
       const salt = crypto.randomBytes(16).toString("hex");
-
       const hash = (
         await scryptAsync(newPassword, salt, 64)
       ).toString("hex");
@@ -384,7 +376,7 @@ app.post(
   }
 );
 
-/* LOAD STOCK, TRANSACTIONS AND COMPLETED STOCK */
+/* LOAD ITEMS, TRANSACTIONS AND COMPLETED STOCK */
 
 app.get("/api/data", auth, async (req, res) => {
   try {
@@ -409,7 +401,8 @@ app.get("/api/data", auth, async (req, res) => {
         shift,
         send_to AS "sendTo",
         TO_CHAR(send_date, 'DD/MM/YYYY') AS date,
-        created_at AS "createdAt"
+        created_at AS "createdAt",
+        received_at AS "receivedAt"
       FROM transactions
       ORDER BY created_at DESC, id DESC
     `);
@@ -532,10 +525,7 @@ app.post(
 
       await client.query("COMMIT");
 
-      res.json({
-        success: true,
-        ...result.rows[0]
-      });
+      res.json({ success: true, ...result.rows[0] });
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Add item error:", error);
@@ -741,23 +731,15 @@ app.post(
   }
 );
 
-/* DISPATCH STOCK: POWDER COATING ONLY
-   Main Admin and Pre Treatment are not permitted.
-   Records the dispatch without changing Pre Treatment stock.
-*/
+/* DISPATCH STOCK: POWDER COATING ONLY */
 
 app.post(
   "/api/stock/dispatch",
   auth,
   allowUsers("powdercoating"),
   async (req, res) => {
-    const {
-      itemCode,
-      itemName,
-      quantity,
-      sendTo,
-      remarks
-    } = req.body || {};
+    const { itemCode, itemName, quantity, sendTo, remarks } =
+      req.body || {};
 
     const code = String(itemCode || "").trim();
     const name = String(itemName || "").trim();
@@ -771,7 +753,8 @@ app.post(
       !["305 store", "QC-1A"].includes(destination)
     ) {
       return res.status(400).json({
-        error: "Enter a valid item, quantity and destination (305 store or QC-1A)."
+        error:
+          "Enter a valid item, quantity and destination (305 store or QC-1A)."
       });
     }
 
@@ -800,7 +783,8 @@ app.post(
       if (powder.rawBalance < 0 || qty > powder.balance) {
         await client.query("ROLLBACK");
         return res.status(400).json({
-          error: "Insufficient Powder Coating stock. Available quantity: " +
+          error:
+            "Insufficient Powder Coating stock. Available quantity: " +
             powder.balance,
           balance: powder.balance
         });
@@ -835,7 +819,10 @@ app.post(
   }
 );
 
-/* ACCEPT PENDING RECEIPT */
+/* ACCEPT PENDING RECEIPT
+   received_at records the actual acceptance time.
+   send_date continues to record the original sending date.
+*/
 
 app.post(
   "/api/stock/accept-receipt",
@@ -857,7 +844,12 @@ app.post(
 
       const result = await client.query(
         `SELECT
-           id, item_code, item_name, quantity, remarks, shift,
+           id,
+           item_code,
+           item_name,
+           quantity,
+           remarks,
+           shift,
            TO_CHAR(send_date, 'DD/MM/YYYY') AS date
          FROM transactions
          WHERE id = $1 AND type = 'PENDING_RECEIPT'
@@ -876,7 +868,8 @@ app.post(
 
       await client.query(
         `UPDATE transactions
-         SET type = 'RECEIVE_POWDER'
+         SET type = 'RECEIVE_POWDER',
+             received_at = NOW()
          WHERE id = $1`,
         [transactionId]
       );
@@ -889,7 +882,8 @@ app.post(
         itemName: receipt.item_name,
         quantity: receipt.quantity,
         shift: receipt.shift,
-        date: receipt.date
+        date: receipt.date,
+        receivedAt: new Date().toISOString()
       });
     } catch (error) {
       await client.query("ROLLBACK");
@@ -910,12 +904,8 @@ app.post(
   auth,
   allowUsers("powdercoating", "mainadmin"),
   async (req, res) => {
-    const {
-      itemCode,
-      itemName,
-      updatedQuantity,
-      remarks
-    } = req.body || {};
+    const { itemCode, itemName, updatedQuantity, remarks } =
+      req.body || {};
 
     const code = String(itemCode || "").trim();
     const name = String(itemName || "").trim();
@@ -1144,7 +1134,10 @@ app.post(
   }
 );
 
-/* CLEAR ALL STOCK */
+/* CLEAR ALL STOCK
+   Destructive endpoint retained from your original code.
+   Do not call it for the daily 8 AM dashboard reset.
+*/
 
 app.post(
   "/api/admin/reset-stock",
