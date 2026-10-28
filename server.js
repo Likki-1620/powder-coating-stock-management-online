@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -206,10 +207,7 @@ app.post(["/api/login", "/api/login/"], async (req, res) => {
           64
         );
 
-        const expected = Buffer.from(
-          row.password_hash,
-          "hex"
-        );
+        const expected = Buffer.from(row.password_hash, "hex");
 
         valid =
           expected.length === calculated.length &&
@@ -233,9 +231,7 @@ app.post(["/api/login", "/api/login/"], async (req, res) => {
         name: user.name
       },
       JWT_SECRET,
-      {
-        expiresIn: "7d"
-      }
+      { expiresIn: "7d" }
     );
 
     res.json({
@@ -292,10 +288,7 @@ app.post(
           64
         );
 
-        const expected = Buffer.from(
-          row.password_hash,
-          "hex"
-        );
+        const expected = Buffer.from(row.password_hash, "hex");
 
         currentValid =
           expected.length === calculated.length &&
@@ -351,8 +344,7 @@ app.get("/api/data", auth, async (req, res) => {
         i.item_name AS "itemName",
         COALESCE(s.quantity, 0) AS quantity
       FROM items i
-      LEFT JOIN stock s
-        ON s.item_code = i.item_code
+      LEFT JOIN stock s ON s.item_code = i.item_code
       ORDER BY i.item_code
     `);
 
@@ -407,13 +399,9 @@ app.get("/api/data", auth, async (req, res) => {
 
 app.get("/api/notifications", auth, async (req, res) => {
   if (
-    !["powdercoating", "mainadmin"].includes(
-      req.user.username
-    )
+    !["powdercoating", "mainadmin"].includes(req.user.username)
   ) {
-    return res.json({
-      notifications: []
-    });
+    return res.json({ notifications: [] });
   }
 
   const sinceRaw = String(req.query.since || "").trim();
@@ -441,9 +429,7 @@ app.get("/api/notifications", auth, async (req, res) => {
       LIMIT 100
     `, [since.toISOString()]);
 
-    res.json({
-      notifications: result.rows
-    });
+    res.json({ notifications: result.rows });
   } catch (error) {
     console.error(error);
 
@@ -517,23 +503,14 @@ app.post(
   }
 );
 
-/* ADD STOCK
-   Pre Treatment records ADD_STOCK.
-   Powder Coating records ADD_POWDER_STOCK.
-*/
+/* ADD STOCK */
 
 app.post(
   "/api/stock/add",
   auth,
   allowUsers("pretreatment", "powdercoating", "mainadmin"),
   async (req, res) => {
-    const {
-      itemCode,
-      itemName,
-      quantity,
-      remarks
-    } = req.body || {};
-
+    const { itemCode, itemName, quantity, remarks } = req.body || {};
     const qty = Number(quantity);
 
     if (
@@ -576,19 +553,11 @@ app.post(
         INSERT INTO transactions
           (item_code, item_name, quantity, type, remarks)
         VALUES ($1, $2, $3, $4, $5)
-      `, [
-        code,
-        name,
-        qty,
-        transactionType,
-        remarks || ""
-      ]);
+      `, [code, name, qty, transactionType, remarks || ""]);
 
       await client.query("COMMIT");
 
-      res.json({
-        success: true
-      });
+      res.json({ success: true });
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Add stock error:", error);
@@ -602,10 +571,7 @@ app.post(
   }
 );
 
-/* SEND STOCK FROM PRE TREATMENT
-   Saves batch number, date, shift and quantity.
-   Batch number remains available in the transaction history.
-*/
+/* SEND STOCK FROM PRE TREATMENT */
 
 app.post(
   "/api/stock/send",
@@ -640,10 +606,7 @@ app.post(
       const day = Number(dateMatch[1]);
       const month = Number(dateMatch[2]);
       const year = Number(dateMatch[3]);
-
-      const parsed = new Date(
-        Date.UTC(year, month - 1, day)
-      );
+      const parsed = new Date(Date.UTC(year, month - 1, day));
 
       if (
         parsed.getUTCFullYear() === year &&
@@ -705,9 +668,7 @@ app.post(
         await client.query("ROLLBACK");
 
         return res.status(400).json({
-          error:
-            "Insufficient stock. Available quantity: " +
-            available
+          error: "Insufficient stock. Available quantity: " + available
         });
       }
 
@@ -720,25 +681,11 @@ app.post(
       await client.query(`
         INSERT INTO transactions
           (
-            item_code,
-            item_name,
-            quantity,
-            type,
-            remarks,
-            shift,
-            send_date,
-            batch_no
+            item_code, item_name, quantity, type, remarks,
+            shift, send_date, batch_no
           )
         VALUES ($1, $2, $3, 'PENDING_RECEIPT', $4, $5, $6, $7)
-      `, [
-        code,
-        name,
-        qty,
-        remarks || "",
-        shift,
-        sendDateISO,
-        batchNo
-      ]);
+      `, [code, name, qty, remarks || "", shift, sendDateISO, batchNo]);
 
       await client.query("COMMIT");
 
@@ -762,9 +709,7 @@ app.post(
   }
 );
 
-/* ACCEPT RECEIPT IN POWDER COATING
-   Preserves the original batch number and send date.
-*/
+/* ACCEPT RECEIPT IN POWDER COATING */
 
 app.post(
   "/api/stock/accept-receipt",
@@ -773,10 +718,7 @@ app.post(
   async (req, res) => {
     const transactionId = Number(req.body?.transactionId);
 
-    if (
-      !Number.isInteger(transactionId) ||
-      transactionId <= 0
-    ) {
+    if (!Number.isInteger(transactionId) || transactionId <= 0) {
       return res.status(400).json({
         error: "Valid pending receipt is required."
       });
@@ -789,17 +731,11 @@ app.post(
 
       const result = await client.query(`
         SELECT
-          id,
-          item_code,
-          item_name,
-          quantity,
-          remarks,
-          shift,
-          batch_no,
+          id, item_code, item_name, quantity, remarks,
+          shift, batch_no,
           TO_CHAR(send_date, 'DD/MM/YYYY') AS date
         FROM transactions
-        WHERE id = $1
-          AND type = 'PENDING_RECEIPT'
+        WHERE id = $1 AND type = 'PENDING_RECEIPT'
         FOR UPDATE
       `, [transactionId]);
 
@@ -815,8 +751,7 @@ app.post(
 
       await client.query(`
         UPDATE transactions
-        SET type = 'RECEIVE_POWDER',
-            received_at = NOW()
+        SET type = 'RECEIVE_POWDER', received_at = NOW()
         WHERE id = $1
       `, [transactionId]);
 
@@ -880,15 +815,13 @@ app.post(
       const receivedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM transactions
-        WHERE item_code = $1
-          AND type = 'RECEIVE_POWDER'
+        WHERE item_code = $1 AND type = 'RECEIVE_POWDER'
       `, [code]);
 
       const directAddResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM transactions
-        WHERE item_code = $1
-          AND type = 'ADD_POWDER_STOCK'
+        WHERE item_code = $1 AND type = 'ADD_POWDER_STOCK'
       `, [code]);
 
       const completedResult = await client.query(`
@@ -900,8 +833,7 @@ app.post(
       const editedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM transactions
-        WHERE item_code = $1
-          AND type = 'EDIT_POWDER_STOCK'
+        WHERE item_code = $1 AND type = 'EDIT_POWDER_STOCK'
       `, [code]);
 
       const received = Number(receivedResult.rows[0].total);
@@ -973,35 +905,17 @@ app.post(
     const operator = String(operatorName || "").trim();
     const note = String(remarks || "").trim();
 
-    const validBooths = [
-      "1", "2", "3", "4", "5", "6", "DL"
-    ];
+    const validBooths = ["1", "2", "3", "4", "5", "6", "DL"];
 
     const validColours = [
-      "IGP Blue",
-      "IGP Grey",
-      "Sky Blue",
-      "White",
-      "Black",
-      "Mint Green",
-      "ABB Grey",
-      "GP Black",
-      "Sparkle Silver",
-      "Strom Grey",
-      "Ral 7001",
-      "Ral 7044"
+      "IGP Blue", "IGP Grey", "Sky Blue", "White",
+      "Black", "Mint Green", "ABB Grey", "GP Black",
+      "Sparkle Silver", "Strom Grey", "Ral 7001", "Ral 7044"
     ];
 
     const validOperators = [
-      "Suresh",
-      "Anji",
-      "Rajiv",
-      "Sonu",
-      "Gobinda",
-      "Ranjan",
-      "Bikas",
-      "Noor Islam",
-      "Tiwari"
+      "Suresh", "Anji", "Rajiv", "Sonu", "Gobinda",
+      "Ranjan", "Bikas", "Noor Islam", "Tiwari"
     ];
 
     if (
@@ -1044,15 +958,13 @@ app.post(
       const receivedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM transactions
-        WHERE item_code = $1
-          AND type = 'RECEIVE_POWDER'
+        WHERE item_code = $1 AND type = 'RECEIVE_POWDER'
       `, [code]);
 
       const directAddResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM transactions
-        WHERE item_code = $1
-          AND type = 'ADD_POWDER_STOCK'
+        WHERE item_code = $1 AND type = 'ADD_POWDER_STOCK'
       `, [code]);
 
       const completedResult = await client.query(`
@@ -1064,8 +976,7 @@ app.post(
       const editedResult = await client.query(`
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM transactions
-        WHERE item_code = $1
-          AND type = 'EDIT_POWDER_STOCK'
+        WHERE item_code = $1 AND type = 'EDIT_POWDER_STOCK'
       `, [code]);
 
       const received = Number(receivedResult.rows[0].total);
@@ -1090,24 +1001,11 @@ app.post(
       await client.query(`
         INSERT INTO completed_stock
           (
-            item_code,
-            item_name,
-            quantity,
-            booth_no,
-            colour,
-            operator_name,
-            remarks
+            item_code, item_name, quantity, booth_no,
+            colour, operator_name, remarks
           )
         VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [
-        code,
-        name,
-        qty,
-        booth,
-        selectedColour,
-        operator,
-        note
-      ]);
+      `, [code, name, qty, booth, selectedColour, operator, note]);
 
       await client.query(`
         INSERT INTO transactions
@@ -1131,6 +1029,180 @@ app.post(
 
       res.status(500).json({
         error: "Unable to save completed stock."
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
+
+/* DISPATCH STOCK — POWDER COATING ONLY
+   Fixes the missing POST /api/stock/dispatch endpoint.
+   Destinations: 305 store or QC-1A.
+   Dispatch is recorded as a transaction and reduces the
+   calculated Powder Coating balance.
+   Pre Treatment stock is never modified here.
+*/
+
+app.post(
+  "/api/stock/dispatch",
+  auth,
+  allowUsers("powdercoating"),
+  async (req, res) => {
+    const {
+      itemCode,
+      itemName,
+      quantity,
+      sendTo,
+      remarks
+    } = req.body || {};
+
+    const code = String(itemCode || "").trim();
+    const name = String(itemName || "").trim();
+    const qty = Number(quantity);
+    const destination = String(sendTo || "").trim();
+    const note = String(remarks || "").trim();
+
+    if (!code || !name) {
+      return res.status(400).json({
+        error: "Please select a valid item."
+      });
+    }
+
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return res.status(400).json({
+        error: "Enter a valid dispatch quantity."
+      });
+    }
+
+    if (!["305 store", "QC-1A"].includes(destination)) {
+      return res.status(400).json({
+        error: "Destination must be 305 store or QC-1A."
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Lock the item row to serialize dispatches for this item.
+      const itemResult = await client.query(
+        `SELECT item_code, item_name
+         FROM items
+         WHERE item_code = $1
+         FOR UPDATE`,
+        [code]
+      );
+
+      if (!itemResult.rowCount) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          error: "Item not found. Please refresh the dashboard."
+        });
+      }
+
+      const actualItemName = itemResult.rows[0].item_name;
+
+      const balanceResult = await client.query(
+        `SELECT
+          COALESCE((
+            SELECT SUM(quantity)
+            FROM transactions
+            WHERE item_code = $1
+              AND type = 'RECEIVE_POWDER'
+          ), 0) AS received,
+
+          COALESCE((
+            SELECT SUM(quantity)
+            FROM transactions
+            WHERE item_code = $1
+              AND type = 'ADD_POWDER_STOCK'
+          ), 0) AS direct_add,
+
+          COALESCE((
+            SELECT SUM(quantity)
+            FROM transactions
+            WHERE item_code = $1
+              AND type = 'EDIT_POWDER_STOCK'
+          ), 0) AS edited,
+
+          COALESCE((
+            SELECT SUM(quantity)
+            FROM completed_stock
+            WHERE item_code = $1
+          ), 0) AS completed,
+
+          COALESCE((
+            SELECT SUM(quantity)
+            FROM transactions
+            WHERE item_code = $1
+              AND type = 'DISPATCH_STOCK'
+          ), 0) AS dispatched`,
+        [code]
+      );
+
+      const totals = balanceResult.rows[0];
+
+      const received = Number(totals.received);
+      const directAdd = Number(totals.direct_add);
+      const edited = Number(totals.edited);
+      const completedQty = Number(totals.completed);
+      const dispatched = Number(totals.dispatched);
+
+      const rawBalance =
+        received + directAdd + edited - completedQty - dispatched;
+
+      const available = Math.max(0, rawBalance);
+
+      if (qty > available) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          error:
+            "Insufficient Powder Coating balance. Available: " +
+            available
+        });
+      }
+
+      const result = await client.query(
+        `INSERT INTO transactions (
+          item_code,
+          item_name,
+          quantity,
+          type,
+          remarks,
+          send_to
+        )
+        VALUES ($1, $2, $3, 'DISPATCH_STOCK', $4, $5)
+        RETURNING
+          id,
+          item_code AS "itemCode",
+          item_name AS "itemName",
+          quantity,
+          remarks,
+          send_to AS "sendTo",
+          created_at AS "createdAt"`,
+        [code, actualItemName || name, qty, note, destination]
+      );
+
+      await client.query("COMMIT");
+
+      return res.json({
+        success: true,
+        message: "Stock dispatched successfully.",
+        dispatch: result.rows[0],
+        previousBalance: available,
+        dispatchedQuantity: qty,
+        balance: available - qty
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Dispatch stock error:", error);
+
+      return res.status(500).json({
+        error: "Unable to dispatch stock. Please try again."
       });
     } finally {
       client.release();
