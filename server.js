@@ -910,7 +910,7 @@ app.post(
     const validColours = [
       "IGP Blue", "IGP Grey", "Sky Blue", "White",
       "Black", "Mint Green", "ABB Grey", "GP Black",
-      "Sparkle Silver", "Strom Grey", "Ral 7001", "Ral 7044"
+      "Sparkle Silver", "Strom Grey", "Ral 7001", "Ral 7044" , "Iron Mica" ,"IGP Green", "Ultra Marine Blue","Beillix Black",
     ];
 
     const validOperators = [
