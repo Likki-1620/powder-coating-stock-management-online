@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -109,9 +110,8 @@ async function initDatabase() {
 // ============================================================
 // POWDER COATING BALANCE
 //
-// IMPORTANT:
-// PENDING_RECEIPT is NOT counted.
-// Only RECEIVE_POWDER is counted after acceptance.
+// Only accepted receipts increase Powder Coating stock.
+// Pending receipts do not increase the balance.
 // ============================================================
 
 async function getPowderBalance(client, code) {
@@ -400,10 +400,6 @@ app.post(
 
 // ============================================================
 // GET ALL DATA
-//
-// quantity is role-specific.
-// Powder Coating receives its calculated balance.
-// Pending Pre Treatment receipts do not increase it.
 // ============================================================
 
 app.get("/api/data", auth, async (req, res) => {
@@ -601,8 +597,8 @@ app.post(
 // ============================================================
 // ADD STOCK
 //
-// Pre Treatment / Main Admin: add to Pre Treatment stock.
-// Powder Coating: add to Powder Coating ledger ONLY.
+// Pre Treatment / Main Admin: add Pre Treatment stock.
+// Powder Coating: add Powder Coating stock only.
 // ============================================================
 
 app.post(
@@ -685,8 +681,8 @@ app.post(
 // ============================================================
 // SEND STOCK FROM PRE TREATMENT
 //
-// Stock is deducted from Pre Treatment.
-// Powder Coating balance remains unchanged until acceptance.
+// Deduct Pre Treatment stock.
+// Powder balance increases only after receipt acceptance.
 // ============================================================
 
 app.post(
@@ -829,9 +825,6 @@ app.post(
 
 // ============================================================
 // ACCEPT RECEIPT
-//
-// This updates the same transaction from PENDING_RECEIPT
-// to RECEIVE_POWDER. No duplicate transaction is created.
 // ============================================================
 
 app.post(
@@ -911,7 +904,7 @@ app.post(
 );
 
 // ============================================================
-// GET POWDER COATING BALANCE FOR AN ITEM
+// GET POWDER COATING BALANCE
 // ============================================================
 
 app.get(
@@ -938,13 +931,20 @@ app.get(
 );
 
 // ============================================================
-// ADMIN: EDIT POWDER COATING BALANCE
+// EDIT POWDER COATING BALANCE
+//
+// FIX: Powder Coating and Main Admin are authorized.
+// Pre Treatment is not authorized.
+//
+// updatedQuantity means the NEW TOTAL BALANCE.
+// Only the adjustment is recorded in the ledger.
+// Pre Treatment stock is never modified here.
 // ============================================================
 
 app.post(
   "/api/stock/edit",
   auth,
-  allowUsers("mainadmin"),
+  allowUsers("powdercoating", "mainadmin"),
   async (req, res) => {
     const {
       itemCode,
@@ -956,6 +956,7 @@ app.post(
     const code = String(itemCode || "").trim();
     const name = String(itemName || "").trim();
     const updated = Number(updatedQuantity);
+    const note = String(remarks || "").trim();
 
     if (
       !code ||
@@ -973,15 +974,28 @@ app.post(
     try {
       await client.query("BEGIN");
 
-      await client.query(
-        `SELECT item_code FROM items
+      // Lock the item row to serialize stock edits for this item.
+      const itemResult = await client.query(
+        `SELECT item_code, item_name
+         FROM items
          WHERE item_code = $1
          FOR UPDATE`,
         [code]
       );
 
+      if (!itemResult.rowCount) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          error: "Item code not found."
+        });
+      }
+
+      // Use the transaction-based Powder Coating balance.
+      // Pending Pre Treatment receipts are not counted.
       const currentBalance = await getPowderBalance(client, code);
-      const delta = updated - currentBalance.balance;
+      const previous = currentBalance.balance;
+      const delta = updated - previous;
 
       if (delta === 0) {
         await client.query("ROLLBACK");
@@ -991,19 +1005,25 @@ app.post(
         });
       }
 
+      // Store a positive or negative adjustment.
       await client.query(
         `INSERT INTO transactions
            (item_code, item_name, quantity, type, remarks)
          VALUES ($1, $2, $3, 'EDIT_POWDER_STOCK', $4)`,
-        [code, name, delta, String(remarks)]
+        [code, name, delta, note]
       );
 
       await client.query("COMMIT");
 
+      const updatedBalance = await getPowderBalance(pool, code);
+
       res.json({
         success: true,
-        previousQuantity: currentBalance.balance,
-        updatedQuantity: updated
+        message: "Powder Coating stock updated successfully.",
+        itemCode: code,
+        previousQuantity: previous,
+        updatedQuantity: updated,
+        powderBalance: updatedBalance.balance
       });
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});
@@ -1124,6 +1144,21 @@ app.post(
         });
       }
 
+      const day = Number(match[1]);
+      const month = Number(match[2]);
+      const year = Number(match[3]);
+      const parsed = new Date(Date.UTC(year, month - 1, day));
+
+      if (
+        parsed.getUTCFullYear() !== year ||
+        parsed.getUTCMonth() !== month - 1 ||
+        parsed.getUTCDate() !== day
+      ) {
+        return res.status(400).json({
+          error: "Invalid pretreatment date."
+        });
+      }
+
       pretreatmentDateISO =
         `${match[3]}-${match[2]}-${match[1]}`;
     }
@@ -1133,12 +1168,21 @@ app.post(
     try {
       await client.query("BEGIN");
 
-      await client.query(
-        `SELECT item_code FROM items
+      const itemResult = await client.query(
+        `SELECT item_code
+         FROM items
          WHERE item_code = $1
          FOR UPDATE`,
         [code]
       );
+
+      if (!itemResult.rowCount) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          error: "Item code not found."
+        });
+      }
 
       const powder = await getPowderBalance(client, code);
 
@@ -1266,7 +1310,13 @@ app.post(
         `INSERT INTO transactions
            (item_code, item_name, quantity, type, remarks, send_to)
          VALUES ($1, $2, $3, 'DISPATCH_STOCK', $4, $5)`,
-        [code, item.rows[0].item_name || name, qty, String(remarks), destination]
+        [
+          code,
+          item.rows[0].item_name || name,
+          qty,
+          String(remarks),
+          destination
+        ]
       );
 
       await client.query("COMMIT");
@@ -1295,7 +1345,7 @@ app.post(
 
 // ============================================================
 // CLEAR ALL STOCK DATA
-// This deletes history. Use only when you really intend to.
+// WARNING: Deletes transaction and completion history.
 // ============================================================
 
 app.post(
