@@ -18,7 +18,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!JWT_SECRET || !DATABASE_URL) {
-  console.error("ERROR: Set JWT_SECRET and DATABASE_URL in Render.");
+  console.error("ERROR: Set JWT_SECRET and DATABASE_URL.");
   process.exit(1);
 }
 
@@ -42,7 +42,9 @@ const USERS = {
   }
 };
 
-/* DATABASE INITIALIZATION */
+// ============================================================
+// DATABASE INITIALIZATION
+// ============================================================
 
 async function initDatabase() {
   await pool.query(`
@@ -90,24 +92,82 @@ async function initDatabase() {
 
   await pool.query(`
     ALTER TABLE transactions
-    ADD COLUMN IF NOT EXISTS shift TEXT,
-    ADD COLUMN IF NOT EXISTS send_date DATE,
-    ADD COLUMN IF NOT EXISTS send_to TEXT,
-    ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS batch_no TEXT
-  `);
+      ADD COLUMN IF NOT EXISTS shift TEXT,
+      ADD COLUMN IF NOT EXISTS send_date DATE,
+      ADD COLUMN IF NOT EXISTS send_to TEXT,
+      ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS batch_no TEXT;
 
-  await pool.query(`
     ALTER TABLE completed_stock
-    ADD COLUMN IF NOT EXISTS booth_no TEXT DEFAULT '',
-    ADD COLUMN IF NOT EXISTS colour TEXT DEFAULT '',
-    ADD COLUMN IF NOT EXISTS operator_name TEXT DEFAULT ''
+      ADD COLUMN IF NOT EXISTS pretreatment_date DATE,
+      ADD COLUMN IF NOT EXISTS batch_no TEXT;
   `);
 
   console.log("Database tables ready.");
 }
 
-/* AUTHENTICATION */
+// ============================================================
+// POWDER COATING BALANCE
+//
+// IMPORTANT:
+// PENDING_RECEIPT is NOT counted.
+// Only RECEIVE_POWDER is counted after acceptance.
+// ============================================================
+
+async function getPowderBalance(client, code) {
+  const result = await client.query(
+    `SELECT
+       COALESCE(SUM(quantity) FILTER (
+         WHERE type = 'RECEIVE_POWDER'
+       ), 0) AS received,
+
+       COALESCE(SUM(quantity) FILTER (
+         WHERE type = 'ADD_POWDER_STOCK'
+       ), 0) AS direct_add,
+
+       COALESCE(SUM(quantity) FILTER (
+         WHERE type = 'EDIT_POWDER_STOCK'
+       ), 0) AS edited,
+
+       COALESCE(SUM(quantity) FILTER (
+         WHERE type = 'DISPATCH_STOCK'
+       ), 0) AS dispatched
+
+     FROM transactions
+     WHERE item_code = $1`,
+    [code]
+  );
+
+  const completedResult = await client.query(
+    `SELECT COALESCE(SUM(quantity), 0) AS completed
+     FROM completed_stock
+     WHERE item_code = $1`,
+    [code]
+  );
+
+  const received = Number(result.rows[0].received);
+  const directAdd = Number(result.rows[0].direct_add);
+  const edited = Number(result.rows[0].edited);
+  const dispatched = Number(result.rows[0].dispatched);
+  const completed = Number(completedResult.rows[0].completed);
+
+  const rawBalance =
+    received + directAdd + edited - completed - dispatched;
+
+  return {
+    received,
+    directAdd,
+    edited,
+    dispatched,
+    completed,
+    rawBalance,
+    balance: Math.max(0, rawBalance)
+  };
+}
+
+// ============================================================
+// AUTHENTICATION
+// ============================================================
 
 function auth(req, res, next) {
   const header = req.headers.authorization || "";
@@ -149,63 +209,9 @@ function validateItem(itemCode, itemName) {
   );
 }
 
-/* POWDER COATING BALANCE
-   Pending and accepted receipts are mutually exclusive transaction types.
-   Accepting a receipt changes its type, so it is not counted twice.
-*/
-
-async function getPowderBalance(client, itemCode) {
-  const result = await client.query(`
-    SELECT
-      COALESCE(SUM(quantity) FILTER (
-        WHERE type IN ('PENDING_RECEIPT', 'RECEIVE_POWDER')
-      ), 0) AS received,
-
-      COALESCE(SUM(quantity) FILTER (
-        WHERE type = 'ADD_POWDER_STOCK'
-      ), 0) AS direct_add,
-
-      COALESCE(SUM(quantity) FILTER (
-        WHERE type = 'EDIT_POWDER_STOCK'
-      ), 0) AS edited,
-
-      COALESCE(SUM(quantity) FILTER (
-        WHERE type = 'DISPATCH_STOCK'
-      ), 0) AS dispatched,
-
-      COALESCE((
-        SELECT SUM(quantity)
-        FROM completed_stock
-        WHERE item_code = $1
-      ), 0) AS completed
-
-    FROM transactions
-    WHERE item_code = $1
-  `, [itemCode]);
-
-  const row = result.rows[0];
-
-  const received = Number(row.received) || 0;
-  const directAdd = Number(row.direct_add) || 0;
-  const edited = Number(row.edited) || 0;
-  const dispatched = Number(row.dispatched) || 0;
-  const completed = Number(row.completed) || 0;
-
-  const rawBalance =
-    received + directAdd + edited - completed - dispatched;
-
-  return {
-    received,
-    directAdd,
-    edited,
-    completed,
-    dispatched,
-    rawBalance,
-    balance: Math.max(0, rawBalance)
-  };
-}
-
-/* HEALTH CHECK */
+// ============================================================
+// HEALTH CHECK
+// ============================================================
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -216,7 +222,7 @@ app.get("/api/health", async (req, res) => {
       database: true
     });
   } catch (error) {
-    console.error(error);
+    console.error("Health check error:", error);
 
     res.status(500).json({
       ok: false,
@@ -226,7 +232,9 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-/* LOGIN */
+// ============================================================
+// LOGIN
+// ============================================================
 
 app.post(["/api/login", "/api/login/"], async (req, res) => {
   const username = String(req.body?.username || "")
@@ -304,7 +312,9 @@ app.post(["/api/login", "/api/login/"], async (req, res) => {
   }
 });
 
-/* MAIN ADMIN CHANGE PASSWORD */
+// ============================================================
+// MAIN ADMIN CHANGE PASSWORD
+// ============================================================
 
 app.post(
   "/api/admin/change-password",
@@ -319,8 +329,7 @@ app.post(
       newPassword.length < 8
     ) {
       return res.status(400).json({
-        error:
-          "Enter current password and a new password of at least 8 characters."
+        error: "Enter the current password and a new password of at least 8 characters."
       });
     }
 
@@ -349,8 +358,7 @@ app.post(
           expected.length === calculated.length &&
           crypto.timingSafeEqual(expected, calculated);
       } else {
-        currentValid =
-          currentPassword === USERS.mainadmin.password;
+        currentValid = currentPassword === USERS.mainadmin.password;
       }
 
       if (!currentValid) {
@@ -365,22 +373,23 @@ app.post(
         await scryptAsync(newPassword, salt, 64)
       ).toString("hex");
 
-      await pool.query(`
-        INSERT INTO admin_password_credentials
-          (username, password_hash, password_salt, updated_at)
-        VALUES ($1, $2, $3, NOW())
-        ON CONFLICT (username) DO UPDATE SET
-          password_hash = EXCLUDED.password_hash,
-          password_salt = EXCLUDED.password_salt,
-          updated_at = NOW()
-      `, ["mainadmin", hash, salt]);
+      await pool.query(
+        `INSERT INTO admin_password_credentials
+           (username, password_hash, password_salt, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (username) DO UPDATE SET
+           password_hash = EXCLUDED.password_hash,
+           password_salt = EXCLUDED.password_salt,
+           updated_at = NOW()`,
+        ["mainadmin", hash, salt]
+      );
 
       res.json({
         success: true,
         message: "Password changed successfully."
       });
     } catch (error) {
-      console.error(error);
+      console.error("Change password error:", error);
 
       res.status(500).json({
         error: "Unable to change password."
@@ -389,88 +398,44 @@ app.post(
   }
 );
 
-/* LOAD SHARED STOCK DATA */
+// ============================================================
+// GET ALL DATA
+//
+// quantity is role-specific.
+// Powder Coating receives its calculated balance.
+// Pending Pre Treatment receipts do not increase it.
+// ============================================================
 
 app.get("/api/data", auth, async (req, res) => {
   try {
-    const items = await pool.query(`
+    const itemsResult = await pool.query(`
       SELECT
         i.item_code AS "itemCode",
         i.item_name AS "itemName",
-
-        COALESCE(s.quantity, 0) AS "pretreatmentQuantity",
-
-        COALESCE((
-          SELECT SUM(t.quantity)
-          FROM transactions t
-          WHERE t.item_code = i.item_code
-            AND t.type IN ('PENDING_RECEIPT', 'RECEIVE_POWDER')
-        ), 0)
-        + COALESCE((
-          SELECT SUM(t.quantity)
-          FROM transactions t
-          WHERE t.item_code = i.item_code
-            AND t.type = 'ADD_POWDER_STOCK'
-        ), 0)
-        + COALESCE((
-          SELECT SUM(t.quantity)
-          FROM transactions t
-          WHERE t.item_code = i.item_code
-            AND t.type = 'EDIT_POWDER_STOCK'
-        ), 0)
-        - COALESCE((
-          SELECT SUM(c.quantity)
-          FROM completed_stock c
-          WHERE c.item_code = i.item_code
-        ), 0)
-        - COALESCE((
-          SELECT SUM(t.quantity)
-          FROM transactions t
-          WHERE t.item_code = i.item_code
-            AND t.type = 'DISPATCH_STOCK'
-        ), 0) AS "powderQuantity",
-
-        CASE
-          WHEN $1 = 'powdercoating' THEN GREATEST(0,
-            COALESCE((
-              SELECT SUM(t.quantity)
-              FROM transactions t
-              WHERE t.item_code = i.item_code
-                AND t.type IN ('PENDING_RECEIPT', 'RECEIVE_POWDER')
-            ), 0)
-            + COALESCE((
-              SELECT SUM(t.quantity)
-              FROM transactions t
-              WHERE t.item_code = i.item_code
-                AND t.type = 'ADD_POWDER_STOCK'
-            ), 0)
-            + COALESCE((
-              SELECT SUM(t.quantity)
-              FROM transactions t
-              WHERE t.item_code = i.item_code
-                AND t.type = 'EDIT_POWDER_STOCK'
-            ), 0)
-            - COALESCE((
-              SELECT SUM(c.quantity)
-              FROM completed_stock c
-              WHERE c.item_code = i.item_code
-            ), 0)
-            - COALESCE((
-              SELECT SUM(t.quantity)
-              FROM transactions t
-              WHERE t.item_code = i.item_code
-                AND t.type = 'DISPATCH_STOCK'
-            ), 0)
-          )
-          ELSE COALESCE(s.quantity, 0)
-        END AS quantity
-
+        COALESCE(s.quantity, 0) AS "pretreatmentQuantity"
       FROM items i
       LEFT JOIN stock s ON s.item_code = i.item_code
       ORDER BY i.item_code
-    `, [req.user.username]);
+    `);
 
-    const transactions = await pool.query(`
+    const items = [];
+
+    for (const item of itemsResult.rows) {
+      const powder = await getPowderBalance(pool, item.itemCode);
+
+      items.push({
+        itemCode: item.itemCode,
+        itemName: item.itemName,
+        pretreatmentQuantity: Number(item.pretreatmentQuantity),
+        powderQuantity: powder.balance,
+        quantity:
+          req.user.username === "powdercoating"
+            ? powder.balance
+            : Number(item.pretreatmentQuantity)
+      });
+    }
+
+    const transactionsResult = await pool.query(`
       SELECT
         id,
         item_code AS "itemCode",
@@ -488,7 +453,7 @@ app.get("/api/data", auth, async (req, res) => {
       ORDER BY created_at DESC, id DESC
     `);
 
-    const completed = await pool.query(`
+    const completedResult = await pool.query(`
       SELECT
         id,
         item_code AS "itemCode",
@@ -498,15 +463,17 @@ app.get("/api/data", auth, async (req, res) => {
         colour,
         operator_name AS "operatorName",
         remarks,
+        batch_no AS "batchNo",
+        TO_CHAR(pretreatment_date, 'DD/MM/YYYY') AS "pretreatmentDate",
         created_at AS "createdAt"
       FROM completed_stock
       ORDER BY created_at DESC, id DESC
     `);
 
     res.json({
-      items: items.rows,
-      transactions: transactions.rows,
-      completedStock: completed.rows
+      items,
+      transactions: transactionsResult.rows,
+      completedStock: completedResult.rows
     });
   } catch (error) {
     console.error("Get data error:", error);
@@ -517,45 +484,12 @@ app.get("/api/data", auth, async (req, res) => {
   }
 });
 
-/* POWDER COATING BALANCE ENDPOINT */
-
-app.get(
-  "/api/stock/powder-balance",
-  auth,
-  allowUsers("powdercoating", "mainadmin"),
-  async (req, res) => {
-    const itemCode = String(req.query.itemCode || "").trim();
-
-    if (!itemCode) {
-      return res.status(400).json({
-        error: "itemCode query parameter is required."
-      });
-    }
-
-    try {
-      const result = await getPowderBalance(pool, itemCode);
-
-      res.json({
-        success: true,
-        itemCode,
-        ...result
-      });
-    } catch (error) {
-      console.error("Powder balance error:", error);
-
-      res.status(500).json({
-        error: "Unable to calculate Powder Coating balance."
-      });
-    }
-  }
-);
-
-/* PENDING RECEIPT NOTIFICATIONS */
+// ============================================================
+// PENDING RECEIPT NOTIFICATIONS
+// ============================================================
 
 app.get("/api/notifications", auth, async (req, res) => {
-  if (
-    !["powdercoating", "mainadmin"].includes(req.user.username)
-  ) {
+  if (!["powdercoating", "mainadmin"].includes(req.user.username)) {
     return res.json({ notifications: [] });
   }
 
@@ -569,24 +503,27 @@ app.get("/api/notifications", auth, async (req, res) => {
   }
 
   try {
-    const result = await pool.query(`
-      SELECT
-        id,
-        item_code AS "itemCode",
-        item_name AS "itemName",
-        quantity,
-        shift,
-        created_at AS "createdAt"
-      FROM transactions
-      WHERE type = 'PENDING_RECEIPT'
-        AND created_at > $1
-      ORDER BY created_at ASC, id ASC
-      LIMIT 100
-    `, [since.toISOString()]);
+    const result = await pool.query(
+      `SELECT
+         id,
+         item_code AS "itemCode",
+         item_name AS "itemName",
+         quantity,
+         shift,
+         batch_no AS "batchNo",
+         TO_CHAR(send_date, 'DD/MM/YYYY') AS date,
+         created_at AS "createdAt"
+       FROM transactions
+       WHERE type = 'PENDING_RECEIPT'
+         AND created_at > $1
+       ORDER BY created_at ASC, id ASC
+       LIMIT 100`,
+      [since.toISOString()]
+    );
 
     res.json({ notifications: result.rows });
   } catch (error) {
-    console.error(error);
+    console.error("Notifications error:", error);
 
     res.status(500).json({
       error: "Unable to load notifications."
@@ -594,7 +531,9 @@ app.get("/api/notifications", auth, async (req, res) => {
   }
 });
 
-/* ADD NEW ITEM CODE */
+// ============================================================
+// ADD ITEM
+// ============================================================
 
 app.post(
   "/api/items",
@@ -616,14 +555,14 @@ app.post(
     try {
       await client.query("BEGIN");
 
-      const result = await client.query(`
-        INSERT INTO items (item_code, item_name)
-        VALUES ($1, $2)
-        ON CONFLICT (item_code) DO NOTHING
-        RETURNING
-          item_code AS "itemCode",
-          item_name AS "itemName"
-      `, [code, name]);
+      const result = await client.query(
+        `INSERT INTO items (item_code, item_name)
+         VALUES ($1, $2)
+         ON CONFLICT (item_code) DO NOTHING
+         RETURNING item_code AS "itemCode",
+                   item_name AS "itemName"`,
+        [code, name]
+      );
 
       if (!result.rowCount) {
         await client.query("ROLLBACK");
@@ -633,11 +572,12 @@ app.post(
         });
       }
 
-      await client.query(`
-        INSERT INTO stock (item_code, quantity)
-        VALUES ($1, 0)
-        ON CONFLICT (item_code) DO NOTHING
-      `, [code]);
+      await client.query(
+        `INSERT INTO stock (item_code, quantity)
+         VALUES ($1, 0)
+         ON CONFLICT (item_code) DO NOTHING`,
+        [code]
+      );
 
       await client.query("COMMIT");
 
@@ -646,8 +586,8 @@ app.post(
         ...result.rows[0]
       });
     } catch (error) {
-      await client.query("ROLLBACK");
-      console.error(error);
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("Add item error:", error);
 
       res.status(500).json({
         error: "Unable to add item."
@@ -657,14 +597,20 @@ app.post(
     }
   }
 );
-/* ADD STOCK */
+
+// ============================================================
+// ADD STOCK
+//
+// Pre Treatment / Main Admin: add to Pre Treatment stock.
+// Powder Coating: add to Powder Coating ledger ONLY.
+// ============================================================
 
 app.post(
   "/api/stock/add",
   auth,
   allowUsers("pretreatment", "powdercoating", "mainadmin"),
   async (req, res) => {
-    const { itemCode, itemName, quantity, remarks } = req.body || {};
+    const { itemCode, itemName, quantity, remarks = "" } = req.body || {};
     const qty = Number(quantity);
 
     if (
@@ -679,85 +625,55 @@ app.post(
 
     const code = itemCode.trim();
     const name = itemName.trim();
-    const note = String(remarks || "").trim();
-
-    // Main Admin must specify which department receives the stock.
-    const department =
-      req.user.username === "mainadmin"
-        ? String(req.body.department || "").trim().toLowerCase()
-        : req.user.username === "powdercoating"
-          ? "powdercoating"
-          : "pretreatment";
-
-    if (!["pretreatment", "powdercoating"].includes(department)) {
-      return res.status(400).json({
-        error: "Select Pre Treatment or Powder Coating."
-      });
-    }
-
+    const isPowderCoating = req.user.username === "powdercoating";
     const client = await pool.connect();
 
     try {
       await client.query("BEGIN");
 
-      await client.query(`
-        INSERT INTO items (item_code, item_name)
-        VALUES ($1, $2)
-        ON CONFLICT (item_code)
-        DO UPDATE SET item_name = EXCLUDED.item_name
-      `, [code, name]);
+      await client.query(
+        `INSERT INTO items (item_code, item_name)
+         VALUES ($1, $2)
+         ON CONFLICT (item_code)
+         DO UPDATE SET item_name = EXCLUDED.item_name`,
+        [code, name]
+      );
 
-      await client.query(`
-        INSERT INTO stock (item_code, quantity)
-        VALUES ($1, 0)
-        ON CONFLICT (item_code) DO NOTHING
-      `, [code]);
-
-      let transactionType;
-
-      if (department === "pretreatment") {
-        // Only Pre Treatment additions modify stock.quantity.
-        await client.query(`
-          UPDATE stock
-          SET quantity = quantity + $1
-          WHERE item_code = $2
-        `, [qty, code]);
-
-        transactionType = "ADD_STOCK";
-      } else {
-        // Powder Coating additions are recorded in the ledger only.
-        // They must never increase Pre Treatment stock.
-        transactionType = "ADD_POWDER_STOCK";
+      if (!isPowderCoating) {
+        await client.query(
+          `INSERT INTO stock (item_code, quantity)
+           VALUES ($1, $2)
+           ON CONFLICT (item_code)
+           DO UPDATE SET quantity = stock.quantity + EXCLUDED.quantity`,
+          [code, qty]
+        );
       }
 
-      await client.query(`
-        INSERT INTO transactions
-          (item_code, item_name, quantity, type, remarks)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [code, name, qty, transactionType, note]);
+      const type = isPowderCoating
+        ? "ADD_POWDER_STOCK"
+        : "ADD_STOCK";
+
+      await client.query(
+        `INSERT INTO transactions
+           (item_code, item_name, quantity, type, remarks)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [code, name, qty, type, String(remarks)]
+      );
 
       await client.query("COMMIT");
 
-      let powderBalance = null;
+      const powder = await getPowderBalance(pool, code);
 
-      if (department === "powdercoating") {
-        powderBalance = (
-          await getPowderBalance(client, code)
-        ).balance;
-      }
-
-      return res.json({
+      res.json({
         success: true,
-        department,
-        itemCode: code,
-        quantityAdded: qty,
-        powderBalance
+        type,
+        powderBalance: powder.balance
       });
     } catch (error) {
-      await client.query("ROLLBACK");
+      await client.query("ROLLBACK").catch(() => {});
       console.error("Add stock error:", error);
 
-      return res.status(500).json({
+      res.status(500).json({
         error: "Unable to add stock."
       });
     } finally {
@@ -766,7 +682,12 @@ app.post(
   }
 );
 
-/* SEND STOCK FROM PRE TREATMENT */
+// ============================================================
+// SEND STOCK FROM PRE TREATMENT
+//
+// Stock is deducted from Pre Treatment.
+// Powder Coating balance remains unchanged until acceptance.
+// ============================================================
 
 app.post(
   "/api/stock/send",
@@ -777,7 +698,7 @@ app.post(
       itemCode,
       itemName,
       quantity,
-      remarks,
+      remarks = "",
       shift,
       date
     } = req.body || {};
@@ -790,34 +711,32 @@ app.post(
     ).trim();
 
     const qty = Number(quantity);
-    const dateText = String(date || "").trim();
-    const dateMatch = dateText.match(
+    const match = String(date || "").trim().match(
       /^(\d{2})\/(\d{2})\/(\d{4})$/
     );
 
-    let sendDateISO = null;
-
-    if (dateMatch) {
-      const day = Number(dateMatch[1]);
-      const month = Number(dateMatch[2]);
-      const year = Number(dateMatch[3]);
-      const parsed = new Date(Date.UTC(year, month - 1, day));
-
-      if (
-        parsed.getUTCFullYear() === year &&
-        parsed.getUTCMonth() === month - 1 &&
-        parsed.getUTCDate() === day
-      ) {
-        sendDateISO =
-          `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
-      }
-    }
-
-    if (!sendDateISO) {
+    if (!match) {
       return res.status(400).json({
-        error: "Select a valid Send Date in DD/MM/YYYY format."
+        error: "Select a valid date in DD/MM/YYYY format."
       });
     }
+
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    const year = Number(match[3]);
+    const parsedDate = new Date(Date.UTC(year, month - 1, day));
+
+    if (
+      parsedDate.getUTCFullYear() !== year ||
+      parsedDate.getUTCMonth() !== month - 1 ||
+      parsedDate.getUTCDate() !== day
+    ) {
+      return res.status(400).json({
+        error: "Invalid send date."
+      });
+    }
+
+    const sendDateISO = `${match[3]}-${match[2]}-${match[1]}`;
 
     if (!["Day Shift", "Night Shift"].includes(shift)) {
       return res.status(400).json({
@@ -842,12 +761,13 @@ app.post(
     try {
       await client.query("BEGIN");
 
-      const result = await client.query(`
-        SELECT quantity
-        FROM stock
-        WHERE item_code = $1
-        FOR UPDATE
-      `, [code]);
+      const result = await client.query(
+        `SELECT quantity
+         FROM stock
+         WHERE item_code = $1
+         FOR UPDATE`,
+        [code]
+      );
 
       if (!result.rowCount) {
         await client.query("ROLLBACK");
@@ -863,61 +783,42 @@ app.post(
         await client.query("ROLLBACK");
 
         return res.status(400).json({
-          error: "Insufficient stock. Available quantity: " + available
+          error: `Insufficient Pre Treatment stock. Available: ${available}`
         });
       }
 
-      // Reduce Pre Treatment stock.
-      await client.query(`
-        UPDATE stock
-        SET quantity = quantity - $1
-        WHERE item_code = $2
-      `, [qty, code]);
+      await client.query(
+        `UPDATE stock
+         SET quantity = quantity - $1
+         WHERE item_code = $2`,
+        [qty, code]
+      );
 
-      // Powder Coating counts PENDING_RECEIPT immediately.
-      // Acceptance later changes the type, without adding quantity again.
-      await client.query(`
-        INSERT INTO transactions
-          (
-            item_code,
-            item_name,
-            quantity,
-            type,
-            remarks,
-            shift,
-            send_date,
-            batch_no
-          )
-        VALUES ($1, $2, $3, 'PENDING_RECEIPT', $4, $5, $6, $7)
-      `, [
-        code,
-        name,
-        qty,
-        String(remarks || "").trim(),
-        shift,
-        sendDateISO,
-        batchNo
-      ]);
-
-      const powderBalance = (
-        await getPowderBalance(client, code)
-      ).balance;
+      const transaction = await client.query(
+        `INSERT INTO transactions
+           (item_code, item_name, quantity, type, remarks,
+            shift, send_date, batch_no)
+         VALUES ($1, $2, $3, 'PENDING_RECEIPT', $4, $5, $6, $7)
+         RETURNING id`,
+        [code, name, qty, String(remarks), shift, sendDateISO, batchNo]
+      );
 
       await client.query("COMMIT");
 
-      return res.json({
+      res.json({
         success: true,
         pending: true,
+        transactionId: transaction.rows[0].id,
         shift,
         batchNo,
         pretreatmentBalance: available - qty,
-        powderBalance
+        message: "Stock sent. Waiting for Powder Coating acceptance."
       });
     } catch (error) {
-      await client.query("ROLLBACK");
+      await client.query("ROLLBACK").catch(() => {});
       console.error("Send stock error:", error);
 
-      return res.status(500).json({
+      res.status(500).json({
         error: "Unable to send stock."
       });
     } finally {
@@ -926,7 +827,12 @@ app.post(
   }
 );
 
-/* ACCEPT RECEIPT IN POWDER COATING */
+// ============================================================
+// ACCEPT RECEIPT
+//
+// This updates the same transaction from PENDING_RECEIPT
+// to RECEIVE_POWDER. No duplicate transaction is created.
+// ============================================================
 
 app.post(
   "/api/stock/accept-receipt",
@@ -946,20 +852,17 @@ app.post(
     try {
       await client.query("BEGIN");
 
-      const result = await client.query(`
-        SELECT
-          id,
-          item_code,
-          item_name,
-          quantity,
-          remarks,
-          shift,
-          batch_no,
-          TO_CHAR(send_date, 'DD/MM/YYYY') AS date
-        FROM transactions
-        WHERE id = $1 AND type = 'PENDING_RECEIPT'
-        FOR UPDATE
-      `, [transactionId]);
+      const result = await client.query(
+        `SELECT
+           id, item_code, item_name, quantity, remarks,
+           shift, batch_no,
+           TO_CHAR(send_date, 'DD/MM/YYYY') AS date
+         FROM transactions
+         WHERE id = $1
+           AND type = 'PENDING_RECEIPT'
+         FOR UPDATE`,
+        [transactionId]
+      );
 
       if (!result.rowCount) {
         await client.query("ROLLBACK");
@@ -971,36 +874,34 @@ app.post(
 
       const receipt = result.rows[0];
 
-      await client.query(`
-        UPDATE transactions
-        SET type = 'RECEIVE_POWDER',
-            received_at = NOW()
-        WHERE id = $1
-      `, [transactionId]);
-
-      // The balance remains unchanged because PENDING_RECEIPT
-      // and RECEIVE_POWDER are both counted in the same receipt total.
-      const powderBalance = (
-        await getPowderBalance(client, receipt.item_code)
-      ).balance;
+      await client.query(
+        `UPDATE transactions
+         SET type = 'RECEIVE_POWDER',
+             received_at = NOW()
+         WHERE id = $1
+           AND type = 'PENDING_RECEIPT'`,
+        [transactionId]
+      );
 
       await client.query("COMMIT");
 
-      return res.json({
+      const powder = await getPowderBalance(pool, receipt.item_code);
+
+      res.json({
         success: true,
         itemCode: receipt.item_code,
         itemName: receipt.item_name,
-        quantity: receipt.quantity,
+        quantity: Number(receipt.quantity),
         shift: receipt.shift,
         batchNo: receipt.batch_no || "",
         date: receipt.date,
-        powderBalance
+        powderBalance: powder.balance
       });
     } catch (error) {
-      await client.query("ROLLBACK");
+      await client.query("ROLLBACK").catch(() => {});
       console.error("Accept receipt error:", error);
 
-      return res.status(500).json({
+      res.status(500).json({
         error: "Unable to accept stock."
       });
     } finally {
@@ -1009,7 +910,36 @@ app.post(
   }
 );
 
-/* EDIT POWDER COATING BALANCE — MAIN ADMIN ONLY */
+// ============================================================
+// GET POWDER COATING BALANCE FOR AN ITEM
+// ============================================================
+
+app.get(
+  "/api/stock/powder-balance/:itemCode",
+  auth,
+  allowUsers("powdercoating", "mainadmin"),
+  async (req, res) => {
+    try {
+      const code = String(req.params.itemCode || "").trim();
+      const result = await getPowderBalance(pool, code);
+
+      res.json({
+        itemCode: code,
+        ...result
+      });
+    } catch (error) {
+      console.error("Powder balance error:", error);
+
+      res.status(500).json({
+        error: "Unable to calculate Powder Coating balance."
+      });
+    }
+  }
+);
+
+// ============================================================
+// ADMIN: EDIT POWDER COATING BALANCE
+// ============================================================
 
 app.post(
   "/api/stock/edit",
@@ -1020,13 +950,16 @@ app.post(
       itemCode,
       itemName,
       updatedQuantity,
-      remarks
+      remarks = ""
     } = req.body || {};
 
+    const code = String(itemCode || "").trim();
+    const name = String(itemName || "").trim();
     const updated = Number(updatedQuantity);
 
     if (
-      !validateItem(itemCode, itemName) ||
+      !code ||
+      !name ||
       !Number.isFinite(updated) ||
       updated < 0
     ) {
@@ -1035,33 +968,20 @@ app.post(
       });
     }
 
-    const code = itemCode.trim();
-    const name = itemName.trim();
     const client = await pool.connect();
 
     try {
       await client.query("BEGIN");
 
-      const itemResult = await client.query(`
-        SELECT item_code
-        FROM items
-        WHERE item_code = $1
-        FOR UPDATE
-      `, [code]);
+      await client.query(
+        `SELECT item_code FROM items
+         WHERE item_code = $1
+         FOR UPDATE`,
+        [code]
+      );
 
-      if (!itemResult.rowCount) {
-        await client.query("ROLLBACK");
-
-        return res.status(404).json({
-          error: "Item not found."
-        });
-      }
-
-      const current = (
-        await getPowderBalance(client, code)
-      ).balance;
-
-      const delta = updated - current;
+      const currentBalance = await getPowderBalance(client, code);
+      const delta = updated - currentBalance.balance;
 
       if (delta === 0) {
         await client.query("ROLLBACK");
@@ -1071,30 +991,26 @@ app.post(
         });
       }
 
-      await client.query(`
-        INSERT INTO transactions
-          (item_code, item_name, quantity, type, remarks)
-        VALUES ($1, $2, $3, 'EDIT_POWDER_STOCK', $4)
-      `, [
-        code,
-        itemName.trim(),
-        delta,
-        String(remarks || "").trim()
-      ]);
+      await client.query(
+        `INSERT INTO transactions
+           (item_code, item_name, quantity, type, remarks)
+         VALUES ($1, $2, $3, 'EDIT_POWDER_STOCK', $4)`,
+        [code, name, delta, String(remarks)]
+      );
 
       await client.query("COMMIT");
 
-      return res.json({
+      res.json({
         success: true,
-        previousQuantity: current,
+        previousQuantity: currentBalance.balance,
         updatedQuantity: updated
       });
     } catch (error) {
-      await client.query("ROLLBACK");
+      await client.query("ROLLBACK").catch(() => {});
       console.error("Edit powder stock error:", error);
 
-      return res.status(500).json({
-        error: "Unable to edit stock."
+      res.status(500).json({
+        error: "Unable to edit Powder Coating stock."
       });
     } finally {
       client.release();
@@ -1102,7 +1018,9 @@ app.post(
   }
 );
 
-/* POWDER COATING COMPLETED STOCK */
+// ============================================================
+// POWDER COATING COMPLETED STOCK
+// ============================================================
 
 app.post(
   "/api/stock/complete",
@@ -1116,14 +1034,19 @@ app.post(
       boothNo,
       colour,
       operatorName,
-      remarks
+      remarks = "",
+      pretreatmentDate,
+      batchNo
     } = req.body || {};
 
+    const code = String(itemCode || "").trim();
+    const name = String(itemName || "").trim();
     const qty = Number(quantity);
     const booth = String(boothNo || "").trim();
     const selectedColour = String(colour || "").trim();
     const operator = String(operatorName || "").trim();
     const note = String(remarks || "").trim();
+    const batch = String(batchNo || "").trim();
 
     const validBooths = ["1", "2", "3", "4", "5", "6", "DL"];
 
@@ -1143,7 +1066,8 @@ app.post(
       "Iron Mica",
       "IGP Green",
       "Ultra Marine Blue",
-      "Brillux Black"
+      "Brillux Black",
+      "Beillix Black"
     ];
 
     const validOperators = [
@@ -1159,7 +1083,8 @@ app.post(
     ];
 
     if (
-      !validateItem(itemCode, itemName) ||
+      !code ||
+      !name ||
       !Number.isFinite(qty) ||
       qty <= 0
     ) {
@@ -1186,72 +1111,84 @@ app.post(
       });
     }
 
-    const code = itemCode.trim();
-    const name = itemName.trim();
+    let pretreatmentDateISO = null;
+
+    if (pretreatmentDate) {
+      const match = String(pretreatmentDate).match(
+        /^(\d{2})\/(\d{2})\/(\d{4})$/
+      );
+
+      if (!match) {
+        return res.status(400).json({
+          error: "Pretreatment date must be DD/MM/YYYY."
+        });
+      }
+
+      pretreatmentDateISO =
+        `${match[3]}-${match[2]}-${match[1]}`;
+    }
+
     const client = await pool.connect();
 
     try {
       await client.query("BEGIN");
 
-      // Lock the item row to avoid concurrent completions overspending stock.
-      const itemResult = await client.query(`
-        SELECT item_code
-        FROM items
-        WHERE item_code = $1
-        FOR UPDATE
-      `, [code]);
+      await client.query(
+        `SELECT item_code FROM items
+         WHERE item_code = $1
+         FOR UPDATE`,
+        [code]
+      );
 
-      if (!itemResult.rowCount) {
-        await client.query("ROLLBACK");
+      const powder = await getPowderBalance(client, code);
 
-        return res.status(404).json({
-          error: "Item not found."
-        });
-      }
-
-      const balance = (
-        await getPowderBalance(client, code)
-      ).balance;
-
-      if (qty > balance) {
+      if (qty > powder.balance) {
         await client.query("ROLLBACK");
 
         return res.status(400).json({
-          error: "Insufficient balance. Available quantity: " + balance
+          error: `Insufficient accepted Powder Coating stock. Available: ${powder.balance}`
         });
       }
 
-      await client.query(`
-        INSERT INTO completed_stock
-          (
-            item_code,
-            item_name,
-            quantity,
-            booth_no,
-            colour,
-            operator_name,
-            remarks
-          )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [code, name, qty, booth, selectedColour, operator, note]);
+      await client.query(
+        `INSERT INTO completed_stock
+           (item_code, item_name, quantity, booth_no,
+            colour, operator_name, remarks,
+            pretreatment_date, batch_no)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          code,
+          name,
+          qty,
+          booth,
+          selectedColour,
+          operator,
+          note,
+          pretreatmentDateISO,
+          batch
+        ]
+      );
 
-      await client.query(`
-        INSERT INTO transactions
-          (item_code, item_name, quantity, type, remarks)
-        VALUES ($1, $2, $3, 'POWDER_COMPLETED', $4)
-      `, [code, name, qty, note]);
+      await client.query(
+        `INSERT INTO transactions
+           (item_code, item_name, quantity, type, remarks)
+         VALUES ($1, $2, $3, 'POWDER_COMPLETED', $4)`,
+        [code, name, qty, note]
+      );
 
       await client.query("COMMIT");
 
-      return res.json({
+      const updated = await getPowderBalance(pool, code);
+
+      res.json({
         success: true,
-        balance: balance - qty
+        balance: updated.balance
       });
     } catch (error) {
-      await client.query("ROLLBACK");
+      await client.query("ROLLBACK").catch(() => {});
       console.error("Complete stock error:", error);
 
-      return res.status(500).json({
+      res.status(500).json({
         error: "Unable to save completed stock."
       });
     } finally {
@@ -1259,258 +1196,210 @@ app.post(
     }
   }
 );
+
 // ============================================================
-// POWDER COATING: DISPATCH STOCK
+// DISPATCH STOCK — POWDER COATING ONLY
 // ============================================================
 
-app.post("/api/stock/dispatch", auth, async (req, res) => {
-  if (req.user.role !== "powdercoating") {
-    return res.status(403).json({
-      error: "Only Powder Coating can dispatch stock"
-    });
-  }
+app.post(
+  "/api/stock/dispatch",
+  auth,
+  allowUsers("powdercoating"),
+  async (req, res) => {
+    const {
+      itemCode,
+      itemName,
+      quantity,
+      sendTo,
+      remarks = ""
+    } = req.body || {};
 
-  const {
-    itemCode,
-    quantity,
-    sendTo,
-    remarks = ""
-  } = req.body;
+    const code = String(itemCode || "").trim();
+    const name = String(itemName || "").trim();
+    const qty = Number(quantity);
+    const destination = String(sendTo || "").trim();
 
-  const code = String(itemCode || "").trim();
-  const qty = Number(quantity);
-  const destination = String(sendTo || "").trim();
-
-  if (!code) {
-    return res.status(400).json({ error: "Item code is required" });
-  }
-
-  if (!Number.isFinite(qty) || qty <= 0) {
-    return res.status(400).json({
-      error: "Quantity must be greater than zero"
-    });
-  }
-
-  if (!["305 store", "QC-1A"].includes(destination)) {
-    return res.status(400).json({
-      error: "Invalid dispatch destination"
-    });
-  }
-
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const itemResult = await client.query(
-      `SELECT item_code, item_name
-       FROM items
-       WHERE item_code = $1`,
-      [code]
-    );
-
-    if (itemResult.rowCount === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Item not found" });
-    }
-
-    const item = itemResult.rows[0];
-
-    // Locking the item row serializes dispatches for the same item.
-    await client.query(
-      `SELECT item_code
-       FROM items
-       WHERE item_code = $1
-       FOR UPDATE`,
-      [code]
-    );
-
-    const powder = await getPowderBalance(client, code);
-
-    if (qty > powder.balance) {
-      await client.query("ROLLBACK");
+    if (!code || !name || !Number.isFinite(qty) || qty <= 0) {
       return res.status(400).json({
-        error: `Insufficient Powder Coating stock. Available: ${powder.balance}`
+        error: "Enter a valid item and dispatch quantity."
       });
     }
 
-    await client.query(
-      `INSERT INTO transactions
-       (item_code, item_name, quantity, type, remarks, send_to)
-       VALUES ($1, $2, $3, 'DISPATCH_STOCK', $4, $5)`,
-      [code, item.item_name, qty, String(remarks), destination]
-    );
+    if (!["305 store", "QC-1A"].includes(destination)) {
+      return res.status(400).json({
+        error: "Destination must be 305 store or QC-1A."
+      });
+    }
 
-    await client.query("COMMIT");
+    const client = await pool.connect();
 
-    const updatedBalance = await getPowderBalance(pool, code);
+    try {
+      await client.query("BEGIN");
 
-    return res.json({
-      success: true,
-      message: "Stock dispatched successfully",
-      itemCode: code,
-      itemName: item.item_name,
-      quantity: qty,
-      sendTo: destination,
-      powderBalance: updatedBalance.balance
-    });
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
-    console.error("Dispatch stock error:", error);
-    return res.status(500).json({
-      error: "Failed to dispatch stock"
-    });
-  } finally {
-    client.release();
+      const item = await client.query(
+        `SELECT item_code, item_name
+         FROM items
+         WHERE item_code = $1
+         FOR UPDATE`,
+        [code]
+      );
+
+      if (!item.rowCount) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          error: "Item not found."
+        });
+      }
+
+      const powder = await getPowderBalance(client, code);
+
+      if (qty > powder.balance) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          error: `Insufficient Powder Coating balance. Available: ${powder.balance}`
+        });
+      }
+
+      await client.query(
+        `INSERT INTO transactions
+           (item_code, item_name, quantity, type, remarks, send_to)
+         VALUES ($1, $2, $3, 'DISPATCH_STOCK', $4, $5)`,
+        [code, item.rows[0].item_name || name, qty, String(remarks), destination]
+      );
+
+      await client.query("COMMIT");
+
+      const updated = await getPowderBalance(pool, code);
+
+      res.json({
+        success: true,
+        message: "Stock dispatched successfully.",
+        dispatchedQuantity: qty,
+        sendTo: destination,
+        balance: updated.balance
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("Dispatch stock error:", error);
+
+      res.status(500).json({
+        error: "Unable to dispatch stock."
+      });
+    } finally {
+      client.release();
+    }
   }
-});
-
+);
 
 // ============================================================
-// ADMIN: RESET STOCK
+// CLEAR ALL STOCK DATA
+// This deletes history. Use only when you really intend to.
 // ============================================================
 
-app.post("/api/admin/reset-stock", auth, async (req, res) => {
-  if (req.user.role !== "mainadmin") {
-    return res.status(403).json({
-      error: "Only Main Admin can reset stock"
-    });
+app.post(
+  "/api/admin/reset-stock",
+  auth,
+  allowUsers("powdercoating"),
+  async (req, res) => {
+    if (req.body?.confirmation !== "CLEAR ALL STOCK DATA") {
+      return res.status(400).json({
+        error: 'Confirmation text must be "CLEAR ALL STOCK DATA".'
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      await client.query("DELETE FROM transactions");
+      await client.query("DELETE FROM completed_stock");
+
+      await client.query(`
+        INSERT INTO stock (item_code, quantity)
+        SELECT item_code, 0 FROM items
+        ON CONFLICT (item_code)
+        DO UPDATE SET quantity = 0
+      `);
+
+      await client.query("COMMIT");
+
+      res.json({
+        success: true,
+        message: "Stock data cleared. Item codes and names are preserved."
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("Reset stock error:", error);
+
+      res.status(500).json({
+        error: "Unable to clear stock data."
+      });
+    } finally {
+      client.release();
+    }
   }
-
-  const confirmation = String(req.body.confirmation || "");
-
-  if (confirmation !== "RESET ALL STOCK") {
-    return res.status(400).json({
-      error: 'Type "RESET ALL STOCK" to confirm this operation'
-    });
-  }
-
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    // WARNING: This permanently deletes transaction history,
-    // completed-stock records, and dispatch records.
-    await client.query("DELETE FROM completed_stock");
-    await client.query("DELETE FROM transactions");
-    await client.query("UPDATE stock SET quantity = 0");
-
-    await client.query("COMMIT");
-
-    return res.json({
-      success: true,
-      message: "Stock reset successfully"
-    });
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
-    console.error("Reset stock error:", error);
-
-    return res.status(500).json({
-      error: "Failed to reset stock"
-    });
-  } finally {
-    client.release();
-  }
-});
-
-
-// ============================================================
-// HEALTH CHECK
-// ============================================================
-
-app.get("/api/health", async (req, res) => {
-  try {
-    await pool.query("SELECT 1");
-
-    res.json({
-      success: true,
-      database: "connected"
-    });
-  } catch (error) {
-    console.error("Health check error:", error);
-
-    res.status(500).json({
-      success: false,
-      database: "disconnected"
-    });
-  }
-});
-
+);
 
 // ============================================================
 // SERVE FRONTEND
 // ============================================================
 
-const publicDirectory = path.join(__dirname, "public");
-const indexPath = path.join(__dirname, "index.html");
+app.use(express.static(__dirname));
 
-if (fs.existsSync(publicDirectory)) {
-  app.use(express.static(publicDirectory));
-}
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
-if (fs.existsSync(indexPath)) {
-  app.get("/", (req, res) => {
-    res.sendFile(indexPath);
-  });
-}
-
-// Express 5 catch-all route.
 app.get("/{*splat}", (req, res, next) => {
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({
-      error: "API endpoint not found"
+      error: "API endpoint not found."
     });
   }
 
-  if (fs.existsSync(indexPath)) {
-    return res.sendFile(indexPath);
+  const indexFile = path.join(__dirname, "index.html");
+
+  if (!fs.existsSync(indexFile)) {
+    return res.status(404).send("index.html was not found.");
   }
 
-  return next();
-});
-
-
-// ============================================================
-// GLOBAL ERROR HANDLER
-// ============================================================
-
-app.use((err, req, res, next) => {
-  console.error("Unhandled server error:", err);
-
-  if (res.headersSent) {
-    return next(err);
-  }
-
-  res.status(500).json({
-    error: "Internal server error"
+  res.sendFile(indexFile, error => {
+    if (error && !res.headersSent) {
+      next(error);
+    }
   });
 });
 
+// ============================================================
+// ERROR HANDLER
+// ============================================================
+
+app.use((error, req, res, next) => {
+  console.error("Server error:", error);
+
+  if (res.headersSent) {
+    return next(error);
+  }
+
+  res.status(500).json({
+    error: "Internal server error."
+  });
+});
 
 // ============================================================
 // START SERVER
 // ============================================================
 
-async function startServer() {
-  try {
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL is missing");
-    }
-
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET is missing");
-    }
-
-    await initDatabase();
-
+initDatabase()
+  .then(() => {
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log("Server running on port " + PORT);
     });
-  } catch (error) {
-    console.error("Server startup failed:", error);
+  })
+  .catch(error => {
+    console.error("Database initialization failed:", error);
     process.exit(1);
-  }
-}
-
-startServer();
+  });
