@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -933,12 +932,8 @@ app.get(
 // ============================================================
 // EDIT POWDER COATING BALANCE
 //
-// FIX: Powder Coating and Main Admin are authorized.
+// Powder Coating and Main Admin are authorized.
 // Pre Treatment is not authorized.
-//
-// updatedQuantity means the NEW TOTAL BALANCE.
-// Only the adjustment is recorded in the ledger.
-// Pre Treatment stock is never modified here.
 // ============================================================
 
 app.post(
@@ -974,7 +969,6 @@ app.post(
     try {
       await client.query("BEGIN");
 
-      // Lock the item row to serialize stock edits for this item.
       const itemResult = await client.query(
         `SELECT item_code, item_name
          FROM items
@@ -991,8 +985,6 @@ app.post(
         });
       }
 
-      // Use the transaction-based Powder Coating balance.
-      // Pending Pre Treatment receipts are not counted.
       const currentBalance = await getPowderBalance(client, code);
       const previous = currentBalance.balance;
       const delta = updated - previous;
@@ -1005,7 +997,6 @@ app.post(
         });
       }
 
-      // Store a positive or negative adjustment.
       await client.query(
         `INSERT INTO transactions
            (item_code, item_name, quantity, type, remarks)
@@ -1070,6 +1061,7 @@ app.post(
 
     const validBooths = ["1", "2", "3", "4", "5", "6", "DL"];
 
+    // UPDATED: Dry Lubricant is now an accepted colour for DL.
     const validColours = [
       "IGP Blue",
       "IGP Grey",
@@ -1087,7 +1079,8 @@ app.post(
       "IGP Green",
       "Ultra Marine Blue",
       "Brillux Black",
-      "Beillix Black"
+      "Beillix Black",
+      "Dry Lubricant"
     ];
 
     const validOperators = [
