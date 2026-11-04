@@ -1,4 +1,3 @@
-
 {
   "$schema": "https://developers.cloudflare.com/workers/wrangler/config-schema.json",
   "name": "powder-coating-stock",
@@ -14,7 +13,7 @@
     }
   ],
   "assets": {
-    "directory": ".",
+    "directory": "./public",
     "binding": "ASSETS",
     "run_worker_first": [
       "/api/*"
