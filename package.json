@@ -2,7 +2,7 @@
   "name": "powder-coating-stock-management",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "main": "worker.js",
   "scripts": {
     "deploy": "wrangler deploy"
