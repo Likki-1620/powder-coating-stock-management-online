@@ -13,7 +13,20 @@ const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
+// API performance monitoring
+app.use((req, res, next) => {
+    const start = Date.now();
 
+    res.on("finish", () => {
+        if (req.path.startsWith("/api/")) {
+            console.log(
+                `[API SPEED] ${req.method} ${req.path} - ${Date.now() - start}ms`
+            );
+        }
+    });
+
+    next();
+});
 const JWT_SECRET = process.env.JWT_SECRET;
 const DATABASE_URL = process.env.DATABASE_URL;
 
