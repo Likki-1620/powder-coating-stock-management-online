@@ -413,76 +413,125 @@ app.post(
 // ============================================================
 // GET ALL DATA
 // ============================================================
-
+ 
 app.get("/api/data", auth, async (req, res) => {
   try {
-    const itemsResult = await pool.query(`
+    // Load item balances and calculate all powder balances
+    // using one aggregate query instead of one query per item.
+    const itemsQuery = `
+      WITH transaction_totals AS (
+        SELECT
+          item_code,
+          COALESCE(SUM(quantity) FILTER (
+            WHERE type = 'RECEIVE_POWDER'
+          ), 0) AS received,
+          COALESCE(SUM(quantity) FILTER (
+            WHERE type = 'ADD_POWDER_STOCK'
+          ), 0) AS direct_add,
+          COALESCE(SUM(quantity) FILTER (
+            WHERE type = 'EDIT_POWDER_STOCK'
+          ), 0) AS edited,
+          COALESCE(SUM(quantity) FILTER (
+            WHERE type = 'DISPATCH_STOCK'
+          ), 0) AS dispatched
+        FROM transactions
+        GROUP BY item_code
+      ),
+      completed_totals AS (
+        SELECT
+          item_code,
+          COALESCE(SUM(quantity), 0) AS completed
+        FROM completed_stock
+        GROUP BY item_code
+      )
       SELECT
         i.item_code AS "itemCode",
         i.item_name AS "itemName",
-        COALESCE(s.quantity, 0) AS "pretreatmentQuantity"
+        COALESCE(s.quantity, 0) AS "pretreatmentQuantity",
+        GREATEST(
+          0,
+          COALESCE(t.received, 0)
+          + COALESCE(t.direct_add, 0)
+          + COALESCE(t.edited, 0)
+          - COALESCE(c.completed, 0)
+          - COALESCE(t.dispatched, 0)
+        ) AS "powderQuantity"
       FROM items i
-      LEFT JOIN stock s ON s.item_code = i.item_code
+      LEFT JOIN stock s
+        ON s.item_code = i.item_code
+      LEFT JOIN transaction_totals t
+        ON t.item_code = i.item_code
+      LEFT JOIN completed_totals c
+        ON c.item_code = i.item_code
       ORDER BY i.item_code
-    `);
+    `;
 
-    const items = [];
+    // Execute independent queries concurrently.
+    const [itemsResult, transactionsResult, completedResult] =
+      await Promise.all([
+        pool.query(itemsQuery),
 
-    for (const item of itemsResult.rows) {
-      const powder = await getPowderBalance(pool, item.itemCode);
+        pool.query(`
+          SELECT
+            id,
+            item_code AS "itemCode",
+            item_name AS "itemName",
+            quantity,
+            type,
+            remarks,
+            shift,
+            batch_no AS "batchNo",
+            send_to AS "sendTo",
+            TO_CHAR(send_date, 'DD/MM/YYYY') AS date,
+            created_at AS "createdAt",
+            received_at AS "receivedAt"
+          FROM transactions
+          ORDER BY created_at DESC, id DESC
+        `),
 
-      items.push({
+        pool.query(`
+          SELECT
+            id,
+            item_code AS "itemCode",
+            item_name AS "itemName",
+            quantity,
+            booth_no AS "boothNo",
+            colour,
+            operator_name AS "operatorName",
+            remarks,
+            batch_no AS "batchNo",
+            TO_CHAR(pretreatment_date, 'DD/MM/YYYY')
+              AS "pretreatmentDate",
+            created_at AS "createdAt"
+          FROM completed_stock
+          ORDER BY created_at DESC, id DESC
+        `)
+      ]);
+
+    const items = itemsResult.rows.map(item => {
+      const pretreatmentQuantity =
+        Number(item.pretreatmentQuantity);
+
+      const powderQuantity = Number(item.powderQuantity);
+
+      return {
         itemCode: item.itemCode,
         itemName: item.itemName,
-        pretreatmentQuantity: Number(item.pretreatmentQuantity),
-        powderQuantity: powder.balance,
+        pretreatmentQuantity,
+        powderQuantity,
         quantity:
           req.user.username === "powdercoating"
-            ? powder.balance
-            : Number(item.pretreatmentQuantity)
-      });
-    }
-
-    const transactionsResult = await pool.query(`
-      SELECT
-        id,
-        item_code AS "itemCode",
-        item_name AS "itemName",
-        quantity,
-        type,
-        remarks,
-        shift,
-        batch_no AS "batchNo",
-        send_to AS "sendTo",
-        TO_CHAR(send_date, 'DD/MM/YYYY') AS date,
-        created_at AS "createdAt",
-        received_at AS "receivedAt"
-      FROM transactions
-      ORDER BY created_at DESC, id DESC
-    `);
-
-    const completedResult = await pool.query(`
-      SELECT
-        id,
-        item_code AS "itemCode",
-        item_name AS "itemName",
-        quantity,
-        booth_no AS "boothNo",
-        colour,
-        operator_name AS "operatorName",
-        remarks,
-        batch_no AS "batchNo",
-        TO_CHAR(pretreatment_date, 'DD/MM/YYYY') AS "pretreatmentDate",
-        created_at AS "createdAt"
-      FROM completed_stock
-      ORDER BY created_at DESC, id DESC
-    `);
+            ? powderQuantity
+            : pretreatmentQuantity
+      };
+    });
 
     res.json({
       items,
       transactions: transactionsResult.rows,
       completedStock: completedResult.rows
     });
+
   } catch (error) {
     console.error("Get data error:", error);
 
@@ -491,7 +540,6 @@ app.get("/api/data", auth, async (req, res) => {
     });
   }
 });
-
 // ============================================================
 // PENDING RECEIPT NOTIFICATIONS
 // ============================================================
